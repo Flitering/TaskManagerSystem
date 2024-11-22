@@ -12,10 +12,6 @@ class TaskService {
   updateTask(taskId, taskData) {
     return api.put(`/tasks/${taskId}`, taskData);
   }
-
-  deleteTask(taskId) {
-    return api.delete(`/tasks/${taskId}`);
-  }
 }
 
 export default new TaskService();

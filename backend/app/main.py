@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app import models
 from app.database import engine, SessionLocal
-from app.routers import users, tasks, auth
+from app.routers import users, tasks, auth, reports, projects
 from app.models import RoleEnum, Role
 from app.auth import get_password_hash
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,7 +49,6 @@ def create_initial_admin():
             )
             db.add(admin_user)
             db.commit()
-            print("Создан первоначальный администратор с именем пользователя 'admin' и паролем 'admin123'")
     finally:
         db.close()
 
@@ -58,3 +57,5 @@ create_initial_admin()
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(tasks.router)
+app.include_router(reports.router)
+app.include_router(projects.router)

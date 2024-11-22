@@ -26,9 +26,17 @@ function Navbar() {
                 <Link to="/users">Пользователи</Link>
               </li>
             )}
-            <li>
-              <Link to="/reports">Отчеты</Link>
-            </li>
+            {(AuthService.getUserRole() === 'Администратор' ||
+              AuthService.getUserRole() === 'Менеджер') && (
+              <>
+                <li>
+                  <Link to="/projects">Проекты</Link>
+                </li>
+                <li>
+                  <Link to="/reports">Отчёты</Link>
+                </li>
+              </>
+            )}
             <li>
               <button onClick={handleLogout}>Выйти</button>
             </li>

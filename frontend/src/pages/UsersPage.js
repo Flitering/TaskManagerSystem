@@ -66,7 +66,7 @@ function UsersPage() {
       <ul>
         {users.map((user) => (
           <li key={user.id}>
-            {user.username} - {user.role}
+            ID: {user.id} - {user.username} - {user.role.name}
           </li>
         ))}
       </ul>
