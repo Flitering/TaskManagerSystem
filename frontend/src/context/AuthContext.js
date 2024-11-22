@@ -6,12 +6,11 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const currentUser = AuthService.getCurrentUser();
-    const role = AuthService.getUserRole();
-    return currentUser ? { ...currentUser, role } : null;
+    return currentUser;
   });
 
   useEffect(() => {
-    // Здесь можно добавить проверку истечения токена или обновление токена
+    // Дополнительная логика, например, проверка истечения токена
   }, []);
 
   return (

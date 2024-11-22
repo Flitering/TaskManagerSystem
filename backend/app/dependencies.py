@@ -12,4 +12,4 @@ def role_required(allowed_roles: List[RoleEnum]):
                 detail="Недостаточно прав для выполнения данного действия",
             )
         return current_user
-    return Depends(wrapper)
+    return wrapper

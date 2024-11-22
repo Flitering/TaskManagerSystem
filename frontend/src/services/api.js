@@ -1,7 +1,11 @@
 import axios from 'axios';
 import AuthService from './AuthService';
 
-const api = axios.create();
+const API_URL = 'http://localhost:8000'; // Замените на ваш URL бэкенда
+
+const api = axios.create({
+  baseURL: API_URL,
+});
 
 api.interceptors.request.use(
   (config) => {

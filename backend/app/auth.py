@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from app import models
+from app import models, crud
 from app.database import get_db
 
 SECRET_KEY = "your_secret_key"  # Замените на ваш секретный ключ
@@ -22,11 +22,11 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def authenticate_user(db: Session, username: str, password: str):
-    user = models.get_user_by_username(db, username)
+    user = crud.get_user_by_username(db, username)
     if not user:
-        return False
+        return None
     if not verify_password(password, user.hashed_password):
-        return False
+        return None
     return user
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -48,7 +48,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = models.get_user_by_username(db, username)
+    user = crud.get_user_by_username(db, username)
     if user is None:
         raise credentials_exception
     return user

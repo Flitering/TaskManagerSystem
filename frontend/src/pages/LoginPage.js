@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AuthService from '../services/AuthService';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 function LoginPage() {
   const { setUser } = useContext(AuthContext);
@@ -17,7 +17,7 @@ function LoginPage() {
       navigate('/tasks');
     } catch (error) {
       console.error('Ошибка входа:', error);
-      // Обработка ошибки, например, отображение уведомления
+      alert('Неверные учетные данные');
     }
   };
 

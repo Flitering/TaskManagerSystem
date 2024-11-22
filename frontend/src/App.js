@@ -5,12 +5,12 @@ import TasksPage from './pages/TasksPage';
 import UsersPage from './pages/UsersPage';
 import ReportsPage from './pages/ReportsPage';
 import ProtectedRoute from './components/ProtectedRoute';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import Navbar from './components/Navbar';
 
 function App() {
   return (
-    <div>
+    <>
+      <Navbar />
       <Routes>
         {/* Публичный маршрут для страницы входа */}
         <Route path="/" element={<LoginPage />} />
@@ -40,9 +40,8 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* Добавьте другие маршруты по необходимости */}
       </Routes>
-    </div>
+    </>
   );
 }
 

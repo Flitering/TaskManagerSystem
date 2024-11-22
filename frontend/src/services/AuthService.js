@@ -1,18 +1,26 @@
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 
-const API_URL = '/auth';
+const API_URL = 'http://localhost:8000'; // Замените на ваш URL бэкенда
 
 class AuthService {
   async login(username, password) {
-    const response = await axios.post(`${API_URL}/token`, {
-      username,
-      password,
-    });
-    if (response.data.access_token) {
-      localStorage.setItem('user', JSON.stringify(response.data));
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('password', password);
+    try {
+      const response = await axios.post('/auth/token', params, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      if (response.data.access_token) {
+        localStorage.setItem('user', JSON.stringify(response.data));
+      }
+      return response.data;
+    } catch (error) {
+      throw error;
     }
-    return response.data;
   }
 
   logout() {

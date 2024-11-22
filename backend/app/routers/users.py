@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List
 from sqlalchemy.orm import Session
 from app import crud, schemas, models
 from app.database import get_db
@@ -16,20 +17,17 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(role_required([RoleEnum.admin]))
 ):
-    # Только администратор может создавать пользователей
+    db_user = crud.get_user_by_username(db, username=user.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Имя пользователя уже зарегистрировано")
     return crud.create_user(db=db, user=user)
 
-@router.get("/", response_model=List[schemas.Task])
-def read_tasks(
+@router.get("/", response_model=List[schemas.User])
+def read_users(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor]))
+    current_user: models.User = Depends(role_required([RoleEnum.admin]))
 ):
-    if current_user.role.name == RoleEnum.executor.value:
-        # Исполнитель видит только свои задачи
-        tasks = db.query(models.Task).filter(models.Task.assigned_user_id == current_user.id).offset(skip).limit(limit).all()
-    else:
-        # Администратор и менеджер видят все задачи
-        tasks = db.query(models.Task).offset(skip).limit(limit).all()
-    return tasks
+    users = crud.get_users(db, skip=skip, limit=limit)
+    return users

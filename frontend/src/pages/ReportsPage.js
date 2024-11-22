@@ -1,6 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import ReportService from '../services/ReportService';
 import { Chart } from 'react-chartjs-2';
+import ReportService from '../services/ReportService';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 function ReportsPage() {
   const [reportData, setReportData] = useState(null);
@@ -9,7 +27,6 @@ function ReportsPage() {
     ReportService.getTaskStatistics()
       .then((response) => {
         setReportData(response.data);
-        // Обработка данных для отображения на графике
       })
       .catch((error) => {
         console.error('Ошибка при загрузке отчётов:', error);
