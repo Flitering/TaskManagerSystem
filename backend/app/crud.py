@@ -54,7 +54,17 @@ def get_tasks(db: Session):
     return db.query(models.Task).all()
 
 def create_task(db: Session, task: schemas.TaskCreate, creator_id: int):
-    db_task = models.Task(**task.dict(), creator_id=creator_id)
+    db_task = models.Task(
+        description=task.description,
+        details=task.details,
+        due_date=task.due_date,
+        priority=task.priority,
+        estimated_time=task.estimated_time,
+        project_id=task.project_id,
+        assigned_user_id=task.assigned_user_id,
+        creator_id=creator_id,
+        parent_task_id=task.parent_task_id,
+    )
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
@@ -66,3 +76,36 @@ def update_task(db: Session, task: models.Task, task_update: schemas.TaskUpdate)
     db.commit()
     db.refresh(task)
     return task
+
+# Комментарии
+
+def create_comment(db: Session, comment: schemas.CommentCreate, user_id: int, task_id: int):
+    db_comment = models.Comment(content=comment.content, user_id=user_id, task_id=task_id)
+    db.add(db_comment)
+    db.commit()
+    db.refresh(db_comment)
+    return db_comment
+
+def get_comments_by_task(db: Session, task_id: int):
+    return db.query(models.Comment).filter(models.Comment.task_id == task_id).all()
+
+# Вложения
+
+def create_attachment(db: Session, attachment: schemas.AttachmentCreate, task_id: int, file_url: str):
+    db_attachment = models.Attachment(
+        filename=attachment.filename,
+        file_url=file_url,
+        task_id=task_id
+    )
+    db.add(db_attachment)
+    db.commit()
+    db.refresh(db_attachment)
+    return db_attachment
+
+def get_attachments_by_task(db: Session, task_id: int):
+    return db.query(models.Attachment).filter(models.Attachment.task_id == task_id).all()
+
+# Подзадачи
+
+def create_subtask(db: Session, task: schemas.TaskCreate, creator_id: int):
+    return create_task(db, task, creator_id)

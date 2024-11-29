@@ -9,7 +9,7 @@ class AuthService {
     params.append('username', username);
     params.append('password', password);
     try {
-      const response = await axios.post('/auth/token', params, {
+      const response = await axios.post(`${API_URL}/auth/token`, params, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
@@ -37,6 +37,15 @@ class AuthService {
     if (user && user.access_token) {
       const decodedToken = jwtDecode(user.access_token);
       return decodedToken.role;
+    }
+    return null;
+  }
+
+  getCurrentUserId() {
+    const user = this.getCurrentUser();
+    if (user && user.access_token) {
+      const decodedToken = jwtDecode(user.access_token);
+      return parseInt(decodedToken.user_id); // Приводим к числу
     }
     return null;
   }

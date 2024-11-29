@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlalchemy.orm import Session
 from app import crud, schemas, models
@@ -10,6 +10,15 @@ router = APIRouter(
     prefix="/projects",
     tags=["projects"],
 )
+
+@router.get("/", response_model=List[schemas.Project])
+def get_projects(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(
+        role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor])
+    ),
+):
+    return crud.get_projects(db)
 
 @router.post("/", response_model=schemas.Project)
 def create_project(

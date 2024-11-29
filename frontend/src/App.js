@@ -2,6 +2,8 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import TasksPage from './pages/TasksPage';
+import TaskDetailPage from './pages/TaskDetailPage';
+import CreateSubtaskPage from './pages/CreateSubtaskPage';
 import UsersPage from './pages/UsersPage';
 import ReportsPage from './pages/ReportsPage';
 import ProjectsPage from './pages/ProjectsPage';
@@ -13,15 +15,28 @@ function App() {
     <>
       <Navbar />
       <Routes>
-        {/* Публичный маршрут для страницы входа */}
         <Route path="/" element={<LoginPage />} />
-
-        {/* Защищенные маршруты */}
         <Route
           path="/tasks"
           element={
             <ProtectedRoute>
               <TasksPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tasks/:taskId"
+          element={
+            <ProtectedRoute>
+              <TaskDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tasks/:taskId/create-subtask"
+          element={
+            <ProtectedRoute>
+              <CreateSubtaskPage />
             </ProtectedRoute>
           }
         />

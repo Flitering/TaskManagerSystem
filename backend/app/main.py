@@ -1,7 +1,8 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from app import models
 from app.database import engine, SessionLocal
-from app.routers import users, tasks, auth, reports, projects
+from app.routers import users, auth, projects, tasks, reports
 from app.models import RoleEnum, Role
 from app.auth import get_password_hash
 from fastapi.middleware.cors import CORSMiddleware
@@ -59,3 +60,5 @@ app.include_router(users.router)
 app.include_router(tasks.router)
 app.include_router(reports.router)
 app.include_router(projects.router)
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
