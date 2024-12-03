@@ -35,6 +35,9 @@ function Navbar() {
                 <li>
                   <Link to="/reports">Отчёты</Link>
                 </li>
+                <li>
+                  <Link to="/search">Поиск</Link>
+                </li>
               </>
             )}
             <li>

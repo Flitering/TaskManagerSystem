@@ -109,3 +109,19 @@ def get_attachments_by_task(db: Session, task_id: int):
 
 def create_subtask(db: Session, task: schemas.TaskCreate, creator_id: int):
     return create_task(db, task, creator_id)
+
+# Поиск
+
+def search_tasks(db: Session, query: str):
+    return (
+        db.query(models.Task)
+        .filter(models.Task.description.ilike(f"%{query}%"))
+        .all()
+    )
+
+def search_projects(db: Session, query: str):
+    return (
+        db.query(models.Project)
+        .filter(models.Project.name.ilike(f"%{query}%"))
+        .all()
+    )

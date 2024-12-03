@@ -32,6 +32,10 @@ class TaskService {
   createSubtask(taskId, subtaskData) {
     return api.post(`/tasks/${taskId}/subtasks`, subtaskData);
   }
+
+  searchTasks(query) {
+    return api.get(`/tasks/search/?query=${encodeURIComponent(query)}`);
+  }
 }
 
 export default new TaskService();

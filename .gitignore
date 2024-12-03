@@ -16,7 +16,6 @@ dist/
 build/
 
 # Database files
-backend\uploads
 *.db
 *.sqlite3
 

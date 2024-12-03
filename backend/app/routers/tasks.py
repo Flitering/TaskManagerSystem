@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from typing import List
 from sqlalchemy.orm import Session
 from app import crud, schemas, models
@@ -112,3 +112,13 @@ def create_subtask(
 
     subtask_data.parent_task_id = task_id
     return crud.create_subtask(db, subtask_data, current_user.id)
+
+@router.get("/search/", response_model=List[schemas.Task])
+def search_tasks(
+    query: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(
+        role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor])
+    ),
+):
+    return crud.search_tasks(db, query)
