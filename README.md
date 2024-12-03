@@ -33,6 +33,7 @@
 ### 1. Клонирование репозитория
 
 git clone https://github.com/Flitering/TaskManagerSystem.git
+
 cd TaskManagerSystem
 
 ### 2. Установка и запуск бэкенда
