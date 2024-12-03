@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from sqlalchemy.orm import Session
 from app import crud, schemas, models
 from app.database import get_db
-from app.dependencies import role_required
+from app.dependencies import get_current_user, role_required
 from app.models import RoleEnum
 
 router = APIRouter(
@@ -29,3 +29,33 @@ def read_users(
 ):
     users = crud.get_users(db)
     return users
+
+@router.get("/{user_id}", response_model=schemas.User)
+def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if current_user.id != user_id and current_user.role.name != 'admin':
+        raise HTTPException(status_code=403, detail="Недостаточно прав для выполнения операции")
+    user = crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    return user
+
+@router.put("/{user_id}", response_model=schemas.User)
+def update_user(
+    user_id: int,
+    user_update: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if current_user.id != user_id and current_user.role.name != 'admin':
+        raise HTTPException(status_code=403, detail="Недостаточно прав для выполнения операции")
+    # Если редактируется роль, только администратор может это делать
+    if user_update.role is not None and current_user.role.name != 'admin':
+        raise HTTPException(status_code=403, detail="Только администратор может изменять роль пользователя")
+    user = crud.update_user(db, user_id, user_update)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    return user

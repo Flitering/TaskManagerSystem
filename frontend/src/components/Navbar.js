@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import AuthService from '../services/AuthService';
+import AuthService, { roleDisplayNames } from '../services/AuthService';
 
 function Navbar() {
   const { user, setUser } = useContext(AuthContext);
@@ -21,13 +21,13 @@ function Navbar() {
             <li>
               <Link to="/tasks">Задачи</Link>
             </li>
-            {AuthService.getUserRole() === 'Администратор' && (
+            {AuthService.getUserRole() === 'admin' && (
               <li>
                 <Link to="/users">Пользователи</Link>
               </li>
             )}
-            {(AuthService.getUserRole() === 'Администратор' ||
-              AuthService.getUserRole() === 'Менеджер') && (
+            {(AuthService.getUserRole() === 'admin' ||
+              AuthService.getUserRole() === 'manager') && (
               <>
                 <li>
                   <Link to="/projects">Проекты</Link>

@@ -97,7 +97,7 @@ function TaskDetailPage() {
       </p>
       <p>
         <strong>Подробное описание:</strong>{' '}
-        {(currentUserRole === 'Администратор' || currentUserRole === 'Менеджер') ? (
+        {(currentUserRole === 'admin' || currentUserRole === 'manager') ? (
           <textarea
             value={details}
             onChange={(e) => setDetails(e.target.value)}
@@ -108,7 +108,7 @@ function TaskDetailPage() {
       </p>
       <p>
         <strong>Статус:</strong>{' '}
-        {currentUserRole !== 'Исполнитель' ? (
+        {currentUserRole !== 'executor' ? (
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="Новая">Новая</option>
             <option value="В процессе">В процессе</option>
@@ -120,7 +120,7 @@ function TaskDetailPage() {
       </p>
       <p>
         <strong>Оценочное время:</strong>{' '}
-        {currentUserRole !== 'Исполнитель' ? (
+        {currentUserRole !== 'executor' ? (
           <input
             type="number"
             step="0.1"
@@ -189,7 +189,7 @@ function TaskDetailPage() {
           </li>
         ))}
       </ul>
-      {(currentUserRole === 'Администратор' || currentUserRole === 'Менеджер') && (
+      {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
         <>
           <Link to={`/tasks/${task.id}/create-subtask`}>Создать подзадачу</Link>
         </>

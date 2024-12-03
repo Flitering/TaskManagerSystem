@@ -12,6 +12,20 @@ class Role(BaseModel):
 
 class UserBase(BaseModel):
     username: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+    
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[RoleEnum] = None
+
+    class Config:
+        orm_mode = True
 
 class UserCreate(UserBase):
     password: str
@@ -19,7 +33,7 @@ class UserCreate(UserBase):
 
 class User(UserBase):
     id: int
-    role: Role
+    role: Role  # Используем модель Role, определённую ранее
 
     class Config:
         orm_mode = True
@@ -82,7 +96,7 @@ class TaskUpdate(BaseModel):
     status: Optional[TaskStatus] = None
     time_spent: Optional[float] = None
     description: Optional[str] = None
-    details: Optional[str] = None  # Добавлено поле details
+    details: Optional[str] = None
     estimated_time: Optional[float] = None
 
 class Task(TaskBase):

@@ -22,6 +22,8 @@ def create_user(db: Session, user: schemas.UserCreate):
         raise ValueError("Указанная роль не существует")
     db_user = models.User(
         username=user.username,
+        full_name=user.full_name,
+        email=user.email,
         hashed_password=hashed_password,
         role=role
     )
@@ -29,6 +31,23 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
+    user = get_user(db, user_id)
+    if user:
+        if user_update.full_name is not None:
+            user.full_name = user_update.full_name
+        if user_update.email is not None:
+            user.email = user_update.email
+        if user_update.password is not None:
+            user.hashed_password = pwd_context.hash(user_update.password)
+        if user_update.role is not None:
+            role = db.query(models.Role).filter(models.Role.name == user_update.role).first()
+            if role:
+                user.role = role
+        db.commit()
+        db.refresh(user)
+    return user
 
 # Проекты
 
@@ -110,7 +129,7 @@ def get_attachments_by_task(db: Session, task_id: int):
 def create_subtask(db: Session, task: schemas.TaskCreate, creator_id: int):
     return create_task(db, task, creator_id)
 
-# Поиск
+# Поиск по сайту
 
 def search_tasks(db: Session, query: str):
     return (
@@ -118,7 +137,7 @@ def search_tasks(db: Session, query: str):
         .filter(models.Task.description.ilike(f"%{query}%"))
         .all()
     )
-
+    
 def search_projects(db: Session, query: str):
     return (
         db.query(models.Project)

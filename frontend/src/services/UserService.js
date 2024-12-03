@@ -5,6 +5,10 @@ class UserService {
     return api.get('/users');
   }
 
+  getUser(userId) {
+    return api.get(`/users/${userId}`);
+  }
+
   createUser(userData) {
     return api.post('/users', userData);
   }

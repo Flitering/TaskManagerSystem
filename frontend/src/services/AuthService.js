@@ -29,7 +29,10 @@ class AuthService {
 
   getCurrentUser() {
     const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+    if (userStr) {
+      return JSON.parse(userStr);
+    }
+    return null;
   }
 
   getUserRole() {
@@ -50,5 +53,11 @@ class AuthService {
     return null;
   }
 }
+
+export const roleDisplayNames = {
+  admin: 'Администратор',
+  manager: 'Менеджер',
+  executor: 'Исполнитель',
+};
 
 export default new AuthService();

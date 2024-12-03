@@ -10,6 +10,7 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import SearchPage from './pages/SearchPage';
+import UserDetailPage from './pages/UserDetailPage';
 
 function App() {
   return (
@@ -50,6 +51,14 @@ function App() {
           }
         />
         <Route
+          path="/users/:userId"
+          element={
+            <ProtectedRoute>
+              <UserDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/reports"
           element={
             <ProtectedRoute>
@@ -58,18 +67,18 @@ function App() {
           }
         />
         <Route
-          path="/projects"
-          element={
-            <ProtectedRoute>
-              <ProjectsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/search"
           element={
             <ProtectedRoute>
               <SearchPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects"
+          element={
+            <ProtectedRoute>
+              <ProjectsPage />
             </ProtectedRoute>
           }
         />

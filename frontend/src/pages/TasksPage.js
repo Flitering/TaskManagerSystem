@@ -76,7 +76,7 @@ function TasksPage() {
   return (
     <div>
       <h2>Задачи</h2>
-      {AuthService.getUserRole() !== 'Исполнитель' && (
+      {AuthService.getUserRole() !== 'executor' && (
         <div>
           <h3>Создать новую задачу</h3>
           <input

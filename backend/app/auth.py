@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from app import models, crud
+from app import crud
 from app.database import get_db
 
 SECRET_KEY = "your_secret_key"  # Замените на ваш секретный ключ
