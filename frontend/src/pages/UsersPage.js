@@ -48,6 +48,20 @@ function UsersPage() {
       });
   };
 
+  const handleDeleteUser = async (userId) => {
+    const confirmDelete = window.confirm('Вы уверены, что хотите удалить этого пользователя?');
+    if (!confirmDelete) return;
+  
+    try {
+      await UserService.deleteUser(userId);
+      setUsers(users.filter(user => user.id !== userId));
+      alert('Пользователь успешно удален');
+    } catch (error) {
+      console.error('Ошибка при удалении пользователя:', error);
+      alert('Не удалось удалить пользователя');
+    }
+  };
+
   return (
     <div>
       <h2>Пользователи</h2>
@@ -89,6 +103,13 @@ function UsersPage() {
           <li key={user.id}>
             ID: {user.id} - {user.username} - {roleDisplayNames[user.role.name]}
             <Link to={`/users/${user.id}`}> Подробнее</Link>
+            {/* Кнопка удаления */}
+            <button
+              onClick={() => handleDeleteUser(user.id)}
+              style={{ marginLeft: '10px', color: 'red' }}
+            >
+              Удалить
+            </button>
           </li>
         ))}
       </ul>

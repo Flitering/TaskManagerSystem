@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app import models
@@ -8,6 +9,17 @@ from app.auth import get_password_hash
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# Путь к директории загрузок
+UPLOADS_DIR = "uploads"
+
+# Проверка и создание директории 'uploads'
+if not os.path.exists(UPLOADS_DIR):
+    os.makedirs(UPLOADS_DIR)
+    print(f"Создана директория '{UPLOADS_DIR}'.")
+
+# Монтирование статических файлов
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 # Настройка CORS
 app.add_middleware(

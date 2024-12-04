@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime, Float
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from app.database import Base
 from datetime import datetime
 import enum
@@ -25,12 +25,12 @@ class User(Base):
     full_name = Column(String, nullable=True)
     email = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String, nullable=False)
-    role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
 
     role = relationship("Role", back_populates="users")
     tasks_assigned = relationship("Task", back_populates="assigned_user", foreign_keys='Task.assigned_user_id')
     tasks_created = relationship("Task", back_populates="creator", foreign_keys='Task.creator_id')
-    comments = relationship("Comment", back_populates="user")
+    comments = relationship("Comment", back_populates="user", cascade="all, delete-orphan")
 
 class Project(Base):
     __tablename__ = "projects"
@@ -39,7 +39,7 @@ class Project(Base):
     name = Column(String, unique=True, nullable=False)
     description = Column(String, nullable=True)
 
-    tasks = relationship("Task", back_populates="project")
+    tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
 
 class TaskStatus(str, enum.Enum):
     new = "Новая"
@@ -50,15 +50,15 @@ class TaskPriority(str, enum.Enum):
     low = "Низкий"
     medium = "Средний"
     high = "Высокий"
-    
+
 class Comment(Base):
     __tablename__ = "comments"
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
 
     user = relationship("User", back_populates="comments")
     task = relationship("Task", back_populates="comments")
@@ -69,7 +69,7 @@ class Attachment(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False)
     file_url = Column(String, nullable=False)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
 
     task = relationship("Task", back_populates="attachments")
 
@@ -81,18 +81,22 @@ class Task(Base):
     details = Column(String, nullable=True)
     status = Column(Enum(TaskStatus), default=TaskStatus.new)
     priority = Column(Enum(TaskPriority), default=TaskPriority.medium)
-    project_id = Column(Integer, ForeignKey("projects.id"))
-    assigned_user_id = Column(Integer, ForeignKey("users.id"))
-    creator_id = Column(Integer, ForeignKey("users.id"))
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
+    assigned_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    creator_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
     due_date = Column(DateTime)
     estimated_time = Column(Float, default=0.0)
     time_spent = Column(Float, default=0.0)
-    parent_task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
+    parent_task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
 
     project = relationship("Project", back_populates="tasks")
     assigned_user = relationship("User", back_populates="tasks_assigned", foreign_keys=[assigned_user_id])
     creator = relationship("User", back_populates="tasks_created", foreign_keys=[creator_id])
-    parent_task = relationship("Task", remote_side=[id], backref='subtasks')
+    parent_task = relationship(
+        "Task",
+        remote_side=[id],
+        backref=backref("subtasks", cascade="all, delete-orphan")
+    )
 
-    comments = relationship("Comment", back_populates="task")
-    attachments = relationship("Attachment", back_populates="task")
+    comments = relationship("Comment", back_populates="task", cascade="all, delete-orphan")
+    attachments = relationship("Attachment", back_populates="task", cascade="all, delete-orphan")

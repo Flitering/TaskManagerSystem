@@ -36,6 +36,10 @@ class TaskService {
   searchTasks(query) {
     return api.get(`/tasks/search/?query=${encodeURIComponent(query)}`);
   }
+
+  deleteTask(taskId) {
+    return api.delete(`/tasks/${taskId}`);
+  }
 }
 
 export default new TaskService();

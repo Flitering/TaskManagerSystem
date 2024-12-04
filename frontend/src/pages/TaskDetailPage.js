@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom'; // Импортируем useNavigate
 import TaskService from '../services/TaskService';
 import AuthService from '../services/AuthService';
 
 function TaskDetailPage() {
   const { taskId } = useParams();
+  const navigate = useNavigate(); // Инициализируем navigate
   const [task, setTask] = useState(null);
   const [commentContent, setCommentContent] = useState('');
   const [file, setFile] = useState(null);
@@ -17,6 +18,7 @@ function TaskDetailPage() {
 
   useEffect(() => {
     loadTask();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
 
   const loadTask = () => {
@@ -34,6 +36,7 @@ function TaskDetailPage() {
       })
       .catch((error) => {
         console.error('Ошибка при загрузке задачи:', error);
+        alert('Не удалось загрузить задачу');
       });
   };
 
@@ -46,6 +49,7 @@ function TaskDetailPage() {
       })
       .catch((error) => {
         console.error('Ошибка при добавлении комментария:', error);
+        alert('Не удалось добавить комментарий');
       });
   };
 
@@ -60,6 +64,7 @@ function TaskDetailPage() {
       })
       .catch((error) => {
         console.error('Ошибка при загрузке файла:', error);
+        alert('Не удалось загрузить файл');
       });
   };
 
@@ -73,10 +78,26 @@ function TaskDetailPage() {
     TaskService.updateTask(taskId, taskData)
       .then(() => {
         loadTask();
+        alert('Задача успешно обновлена');
       })
       .catch((error) => {
         console.error('Ошибка при обновлении задачи:', error);
+        alert('Не удалось обновить задачу');
       });
+  };
+
+  const handleDeleteTask = async () => {
+    const confirmDelete = window.confirm('Вы уверены, что хотите удалить эту задачу? Все связанные подзадачи будут также удалены.');
+    if (!confirmDelete) return;
+
+    try {
+      await TaskService.deleteTask(taskId);
+      alert('Задача успешно удалена');
+      navigate('/tasks'); // Перенаправление на страницу задач после удаления
+    } catch (error) {
+      console.error('Ошибка при удалении задачи:', error);
+      alert('Не удалось удалить задачу');
+    }
   };
 
   if (!task) {
@@ -101,6 +122,8 @@ function TaskDetailPage() {
           <textarea
             value={details}
             onChange={(e) => setDetails(e.target.value)}
+            rows="4"
+            cols="50"
           />
         ) : (
           <p>{details}</p>
@@ -144,6 +167,16 @@ function TaskDetailPage() {
       </p>
       <button onClick={handleUpdateTask}>Сохранить изменения</button>
 
+      {/* Кнопка удаления задачи */}
+      {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
+        <button
+          onClick={handleDeleteTask}
+          style={{ marginLeft: '10px', color: 'red' }}
+        >
+          Удалить задачу
+        </button>
+      )}
+
       <h3>Комментарии</h3>
       <ul>
         {task.comments && task.comments.map((comment) => (
@@ -159,6 +192,8 @@ function TaskDetailPage() {
         placeholder="Добавить комментарий"
         value={commentContent}
         onChange={(e) => setCommentContent(e.target.value)}
+        rows="3"
+        cols="50"
       />
       <button onClick={handleAddComment}>Добавить комментарий</button>
 
@@ -190,9 +225,7 @@ function TaskDetailPage() {
         ))}
       </ul>
       {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
-        <>
-          <Link to={`/tasks/${task.id}/create-subtask`}>Создать подзадачу</Link>
-        </>
+        <Link to={`/tasks/${task.id}/create-subtask`}>Создать подзадачу</Link>
       )}
     </div>
   );

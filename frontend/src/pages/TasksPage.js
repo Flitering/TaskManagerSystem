@@ -70,7 +70,22 @@ function TasksPage() {
       })
       .catch((error) => {
         console.error('Ошибка при создании задачи:', error);
+        alert(error.response.data.detail || 'Не удалось создать задачу');
       });
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    const confirmDelete = window.confirm('Вы уверены, что хотите удалить эту задачу? Все связанные подзадачи будут также удалены.');
+    if (!confirmDelete) return;
+
+    try {
+      await TaskService.deleteTask(taskId);
+      setTasks(tasks.filter(task => task.id !== taskId));
+      alert('Задача успешно удалена');
+    } catch (error) {
+      console.error('Ошибка при удалении задачи:', error);
+      alert('Не удалось удалить задачу');
+    }
   };
 
   return (
@@ -141,6 +156,13 @@ function TasksPage() {
               Осталось времени: {task.estimated_time - task.time_spent} ч
             </p>
             <Link to={`/tasks/${task.id}`}>Детали задачи</Link>
+            {/* Кнопка удаления */}
+            <button
+              onClick={() => handleDeleteTask(task.id)}
+              style={{ marginLeft: '10px', color: 'red' }}
+            >
+              Удалить
+            </button>
           </li>
         ))}
       </ul>

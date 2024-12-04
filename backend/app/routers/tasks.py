@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from typing import List
 from sqlalchemy.orm import Session
 from app import crud, schemas, models
@@ -122,3 +122,17 @@ def search_tasks(
     ),
 ):
     return crud.search_tasks(db, query)
+
+@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager]))
+):
+    db_task = crud.get_task(db, task_id)
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+    success = crud.delete_task(db, task_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Не удалось удалить задачу")
+    return

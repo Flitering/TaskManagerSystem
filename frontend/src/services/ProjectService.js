@@ -12,6 +12,10 @@ class ProjectService {
   searchProjects(query) {
     return api.get(`/projects/search/?query=${encodeURIComponent(query)}`);
   }
+  
+  deleteProject(projectId) {
+    return api.delete(`/projects/${projectId}`);
+  }
 }
 
 export default new ProjectService();

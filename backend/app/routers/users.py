@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlalchemy.orm import Session
 from app import crud, schemas, models
@@ -59,3 +59,17 @@ def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     return user
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(role_required([RoleEnum.admin]))
+):
+    db_user = crud.get_user(db, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    success = crud.delete_user(db, user_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Не удалось удалить пользователя")
+    return

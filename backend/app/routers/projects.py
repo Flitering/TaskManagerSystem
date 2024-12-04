@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlalchemy.orm import Session
 from app import crud, schemas, models
@@ -45,3 +45,17 @@ def search_projects(
     ),
 ):
     return crud.search_projects(db, query)
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager]))
+):
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Проект не найден")
+    success = crud.delete_project(db, project_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Не удалось удалить проект")
+    return

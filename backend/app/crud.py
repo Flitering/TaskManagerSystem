@@ -144,3 +144,30 @@ def search_projects(db: Session, query: str):
         .filter(models.Project.name.ilike(f"%{query}%"))
         .all()
     )
+
+# Удаление пользователя
+def delete_user(db: Session, user_id: int):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        db.delete(user)
+        db.commit()
+        return True
+    return False
+
+# Удаление проекта
+def delete_project(db: Session, project_id: int):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if project:
+        db.delete(project)
+        db.commit()
+        return True
+    return False
+
+# Удаление задачи
+def delete_task(db: Session, task_id: int):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if task:
+        db.delete(task)
+        db.commit()
+        return True
+    return False
