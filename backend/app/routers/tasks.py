@@ -14,15 +14,6 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[schemas.Task])
-def get_tasks(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(
-        role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor])  # Добавлен исполнитель
-    ),
-):
-    return crud.get_tasks(db)
-
-@router.get("/", response_model=List[schemas.Task])
 def read_tasks(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor]))
@@ -30,7 +21,7 @@ def read_tasks(
     if current_user.role.name == RoleEnum.executor.value:
         tasks = db.query(models.Task).filter(models.Task.assigned_user_id == current_user.id).all()
     else:
-        tasks = db.query(models.Task).all()
+        tasks = crud.get_tasks(db)
     return tasks
 
 @router.post("/", response_model=schemas.Task)
@@ -59,9 +50,7 @@ def update_task(
 def get_task(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(
-        role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor])
-    ),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor])),
 ):
     task = crud.get_task(db, task_id)
     if not task:
@@ -77,7 +66,7 @@ def add_comment(
 ):
     return crud.create_comment(db, comment, current_user.id, task_id)
 
-@router.post("/{task_id}/attachments")
+@router.post("/{task_id}/attachments", response_model=schemas.Attachment)
 def upload_attachment(
     task_id: int,
     file: UploadFile = File(...),
@@ -90,7 +79,7 @@ def upload_attachment(
 
     upload_directory = "uploads"
     os.makedirs(upload_directory, exist_ok=True)
-    file_location = f"{upload_directory}/{file.filename}"
+    file_location = os.path.join(upload_directory, file.filename)
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
@@ -102,9 +91,7 @@ def create_subtask(
     task_id: int,
     subtask_data: schemas.TaskCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(
-        role_required([RoleEnum.admin, RoleEnum.manager])
-    ),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager])),
 ):
     parent_task = crud.get_task(db, task_id)
     if not parent_task:
@@ -117,9 +104,7 @@ def create_subtask(
 def search_tasks(
     query: str,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(
-        role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor])
-    ),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor]))
 ):
     return crud.search_tasks(db, query)
 

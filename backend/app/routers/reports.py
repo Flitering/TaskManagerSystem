@@ -1,7 +1,9 @@
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import TaskStatus, Task
+from app import models
 from typing import List
 from app.dependencies import role_required
 from app.models import RoleEnum
@@ -14,7 +16,7 @@ router = APIRouter(
 @router.get("/task-stats")
 def get_task_statistics(
     db: Session = Depends(get_db),
-    current_user = Depends(role_required([RoleEnum.admin, RoleEnum.manager]))
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager]))
 ):
     total_tasks = db.query(Task).count()
     completed_tasks = db.query(Task).filter(Task.status == TaskStatus.completed).count()

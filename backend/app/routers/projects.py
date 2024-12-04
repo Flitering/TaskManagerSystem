@@ -28,14 +28,6 @@ def create_project(
 ):
     return crud.create_project(db=db, project=project)
 
-@router.get("/", response_model=List[schemas.Project])
-def read_projects(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor]))
-):
-    projects = crud.get_projects(db)
-    return projects
-
 @router.get("/search/", response_model=List[schemas.Project])
 def search_projects(
     query: str,

@@ -28,7 +28,7 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
 
     role = relationship("Role", back_populates="users")
-    tasks_assigned = relationship("Task", back_populates="assigned_user", foreign_keys='Task.assigned_user_id')
+    assigned_tasks = relationship("Task", back_populates="assigned_user", foreign_keys='Task.assigned_user_id')
     tasks_created = relationship("Task", back_populates="creator", foreign_keys='Task.creator_id')
     comments = relationship("Comment", back_populates="user", cascade="all, delete-orphan")
 
@@ -90,7 +90,7 @@ class Task(Base):
     parent_task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
 
     project = relationship("Project", back_populates="tasks")
-    assigned_user = relationship("User", back_populates="tasks_assigned", foreign_keys=[assigned_user_id])
+    assigned_user = relationship("User", back_populates="assigned_tasks", foreign_keys=[assigned_user_id])
     creator = relationship("User", back_populates="tasks_created", foreign_keys=[creator_id])
     parent_task = relationship(
         "Task",
