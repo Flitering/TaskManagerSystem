@@ -6,7 +6,7 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const currentUser = AuthService.getCurrentUser();
-    return currentUser;
+    return currentUser || null;
   });
 
   useEffect(() => {

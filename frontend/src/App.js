@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { AuthContext } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import TasksPage from './pages/TasksPage';
 import TaskDetailPage from './pages/TaskDetailPage';
@@ -13,9 +14,11 @@ import SearchPage from './pages/SearchPage';
 import UserDetailPage from './pages/UserDetailPage';
 
 function App() {
+  const { user } = useContext(AuthContext);
+
   return (
     <>
-      <Navbar />
+      {user && <Navbar />}
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route

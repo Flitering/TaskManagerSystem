@@ -164,7 +164,7 @@ class TaskBase(BaseModel):
 
 class TaskCreate(TaskBase):
     project_id: int
-    assigned_user_id: int
+    assigned_user_id: Optional[int] = None
     parent_task_id: Optional[int] = None
 
     class Config:
@@ -185,19 +185,20 @@ class TaskUpdate(BaseModel):
 class TaskRead(TaskBase):
     id: int
     status: TaskStatus
-    assigned_user: Optional[UserRead] = None  # Используем UserRead без поля assigned_tasks
+    assigned_user: Optional[UserRead] = None
     creator: Optional[UserRead] = None
     project_id: Optional[int] = None
     project: Optional[ProjectRead] = None
     time_spent: float = 0.0
     comments: Optional[List[CommentRead]] = None
     attachments: Optional[List[AttachmentRead]] = None
-    subtasks: Optional[List[TaskSummary]] = None  # Используем TaskSummary для предотвращения рекурсии
+    subtasks: Optional[List[TaskSummary]] = None
     parent_task_id: Optional[int] = None
+    assignment_date: Optional[datetime] = None
+    created_at: datetime
 
     class Config:
         orm_mode = True
-
 
 # Создание алиаса для TaskRead
 Task = TaskRead

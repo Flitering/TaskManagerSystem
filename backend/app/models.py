@@ -88,6 +88,8 @@ class Task(Base):
     estimated_time = Column(Float, default=0.0)
     time_spent = Column(Float, default=0.0)
     parent_task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
+    assignment_date = Column(DateTime, default=datetime.utcnow, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     project = relationship("Project", back_populates="tasks")
     assigned_user = relationship("User", back_populates="assigned_tasks", foreign_keys=[assigned_user_id])

@@ -36,6 +36,7 @@ function TaskDetailPage() {
   const [estimatedTime, setEstimatedTime] = useState('');
   const [timeSpent, setTimeSpent] = useState('');
   const [details, setDetails] = useState('');
+  const [description, setDescription] = useState('');
 
   const currentUserRole = AuthService.getUserRole();
 
@@ -61,6 +62,7 @@ function TaskDetailPage() {
         setEstimatedTime(data.estimated_time);
         setTimeSpent(data.time_spent);
         setDetails(data.details || '');
+        setDescription(data.description);
 
         // Если есть родительская задача, загрузим её детали
         if (data.parent_task_id) {
@@ -122,6 +124,7 @@ function TaskDetailPage() {
       estimated_time: parseFloat(estimatedTime),
       time_spent: parseFloat(timeSpent),
       details,
+      description,
     };
     TaskService.updateTask(taskId, taskData)
       .then(() => {
@@ -157,6 +160,16 @@ function TaskDetailPage() {
   const handleCloseSnackbar = (event, reason) => {
     if (reason === 'clickaway') return;
     setOpenSnackbar(false);
+  };
+
+  // Функция для форматирования даты
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return '-';
+    const options = { 
+      year: 'numeric', month: 'short', day: 'numeric', 
+      hour: '2-digit', minute: '2-digit' 
+    };
+    return new Date(dateTimeString).toLocaleDateString(undefined, options);
   };
 
   if (!task) {
@@ -201,9 +214,15 @@ function TaskDetailPage() {
             </Grid>
           )}
           {/* Описание задачи */}
-          <Grid item xs={12} sm={6} md={6}>
+          <Grid item xs={12}>
             <Typography variant="h6">Описание:</Typography>
-            <Typography>{task.description}</Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              size="medium"
+            />
           </Grid>
           {/* Статус задачи */}
           <Grid item xs={12} sm={6} md={6}>
@@ -253,6 +272,21 @@ function TaskDetailPage() {
               onChange={(e) => setTimeSpent(e.target.value)}
               size="medium"
             />
+          </Grid>
+          {/* Назначенный пользователь */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Назначен:</Typography>
+            <Typography>{task.assigned_user ? task.assigned_user.username : '-'}</Typography>
+          </Grid>
+          {/* Назначил */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Назначил:</Typography>
+            <Typography>{task.creator ? task.creator.username : '-'}</Typography>
+          </Grid>
+          {/* Дата назначения */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Дата назначения:</Typography>
+            <Typography>{formatDateTime(task.created_at)}</Typography>
           </Grid>
           {/* Подробное описание */}
           <Grid item xs={12}>

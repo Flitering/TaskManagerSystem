@@ -3,14 +3,17 @@ from typing import List
 from sqlalchemy.orm import Session
 from app import crud, schemas, models
 from app.database import get_db
-from app.dependencies import role_required
+from app.dependencies import role_required, get_current_user
 from app.models import RoleEnum
+from datetime import datetime
 import os
 import shutil
 
 router = APIRouter(
     prefix="/tasks",
     tags=["tasks"],
+    dependencies=[Depends(get_current_user)],
+    responses={404: {"description": "Not found"}},
 )
 
 @router.get("/", response_model=List[schemas.Task])
@@ -25,12 +28,20 @@ def read_tasks(
     return tasks
 
 @router.post("/", response_model=schemas.Task)
-def create_task(
-    task: schemas.TaskCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager]))
-):
-    return crud.create_task(db=db, task=task, creator_id=current_user.id)
+def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    db_task = models.Task(
+        description=task.description,
+        details=task.details,
+        project_id=task.project_id,
+        assigned_user_id=task.assigned_user_id,
+        creator_id=current_user.id,
+        estimated_time=task.estimated_time,
+        assignment_date=datetime.utcnow() if task.assigned_user_id else None
+    )
+    db.add(db_task)
+    db.commit()
+    db.refresh(db_task)
+    return db_task
 
 @router.put("/{task_id}", response_model=schemas.Task)
 def update_task(

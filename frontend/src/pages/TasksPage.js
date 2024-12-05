@@ -13,7 +13,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Grid, // Используем стабильный Grid
+  Grid,
   Paper,
   Table,
   TableBody,
@@ -131,6 +131,16 @@ function TasksPage() {
   const handleCloseSnackbar = (event, reason) => {
     if (reason === 'clickaway') return;
     setOpenSnackbar(false);
+  };
+
+  // Функция для форматирования даты
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return '-';
+    const options = { 
+      year: 'numeric', month: 'short', day: 'numeric', 
+      hour: '2-digit', minute: '2-digit' 
+    };
+    return new Date(dateTimeString).toLocaleDateString(undefined, options);
   };
 
   return (
@@ -252,6 +262,8 @@ function TasksPage() {
               <TableCell>Проект</TableCell>
               <TableCell>Статус</TableCell>
               <TableCell>Назначен</TableCell>
+              <TableCell>Назначил</TableCell>
+              <TableCell>Дата назначения</TableCell>
               <TableCell>Оценка (ч)</TableCell>
               <TableCell>Потрачено (ч)</TableCell>
               <TableCell align="center">Действия</TableCell>
@@ -269,6 +281,8 @@ function TasksPage() {
                 <TableCell>{task.project ? task.project.name : '-'}</TableCell>
                 <TableCell>{task.status}</TableCell>
                 <TableCell>{task.assigned_user ? task.assigned_user.username : '-'}</TableCell>
+                <TableCell>{task.creator ? task.creator.username : '-'}</TableCell>
+                <TableCell>{formatDateTime(task.created_at)}</TableCell>
                 <TableCell>{task.estimated_time}</TableCell>
                 <TableCell>{task.time_spent}</TableCell>
                 <TableCell align="center">
@@ -296,7 +310,7 @@ function TasksPage() {
             ))}
             {tasks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={10} align="center">
                   Задачи не найдены.
                 </TableCell>
               </TableRow>
