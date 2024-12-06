@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ProjectService from '../services/ProjectService';
+import UserService from '../services/UserService';
 import {
   Container,
   Typography,
@@ -13,9 +14,18 @@ import {
   IconButton,
   Snackbar,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import PersonIcon from '@mui/icons-material/Person';
 import { Link } from 'react-router-dom'; // Добавлено
 
 function ProjectsPage() {
@@ -28,6 +38,12 @@ function ProjectsPage() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
+  // Состояния для назначения лидера
+  const [isLeaderDialogOpen, setIsLeaderDialogOpen] = useState(false);
+  const [leaderProjectId, setLeaderProjectId] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [selectedLeaderId, setSelectedLeaderId] = useState('');
+
   const loadProjects = () => {
     ProjectService.getProjects()
       .then((response) => {
@@ -39,8 +55,20 @@ function ProjectsPage() {
       });
   };
 
+  const loadUsers = () => {
+    UserService.getUsers()
+      .then((response) => {
+        setUsers(response.data);
+      })
+      .catch((error) => {
+        console.error('Ошибка при загрузке пользователей:', error);
+        // Допустим не будем выводить snackbar на ошибку загрузки пользователей здесь
+      });
+  };
+
   useEffect(() => {
     loadProjects();
+    loadUsers();
   }, []);
 
   const handleCreateProject = () => {
@@ -62,7 +90,7 @@ function ProjectsPage() {
       })
       .catch((error) => {
         console.error('Ошибка при создании проекта:', error);
-        showSnackbar(error.response.data.detail || 'Не удалось создать проект', 'error');
+        showSnackbar(error.response?.data?.detail || 'Не удалось создать проект', 'error');
       });
   };
 
@@ -89,6 +117,38 @@ function ProjectsPage() {
   const handleCloseSnackbar = (event, reason) => {
     if (reason === 'clickaway') return;
     setOpenSnackbar(false);
+  };
+
+  // Открыть диалог для назначения лидера
+  const handleOpenLeaderDialog = (projectId) => {
+    setLeaderProjectId(projectId);
+    setSelectedLeaderId('');
+    setIsLeaderDialogOpen(true);
+  };
+
+  // Закрыть диалог для назначения лидера
+  const handleCloseLeaderDialog = () => {
+    setIsLeaderDialogOpen(false);
+    setLeaderProjectId(null);
+    setSelectedLeaderId('');
+  };
+
+  // Назначить лидера
+  const handleAssignLeader = () => {
+    if (!selectedLeaderId) {
+      showSnackbar('Выберите пользователя для назначения лидером', 'warning');
+      return;
+    }
+    ProjectService.assignLeader(leaderProjectId, selectedLeaderId)
+      .then(() => {
+        showSnackbar('Лидер успешно назначен', 'success');
+        handleCloseLeaderDialog();
+        loadProjects();
+      })
+      .catch((error) => {
+        console.error('Ошибка при назначении лидера:', error);
+        showSnackbar('Не удалось назначить лидера', 'error');
+      });
   };
 
   return (
@@ -142,11 +202,19 @@ function ProjectsPage() {
         {projects && projects.length > 0 ? (
           <List>
             {projects.map((project) => (
-              <ListItem key={project.id} secondaryAction={
-                <IconButton edge="end" color="error" onClick={() => handleDeleteProject(project.id)}>
-                  <DeleteIcon />
-                </IconButton>
-              }>
+              <ListItem 
+                key={project.id}
+                secondaryAction={
+                  <>
+                    <IconButton edge="end" color="primary" onClick={() => handleOpenLeaderDialog(project.id)}>
+                      <PersonIcon />
+                    </IconButton>
+                    <IconButton edge="end" color="error" onClick={() => handleDeleteProject(project.id)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </>
+                }
+              >
                 <ListItemText
                   primary={
                     <Link to={`/projects/${project.id}`} style={{ textDecoration: 'none', color: '#1976d2' }}>
@@ -162,6 +230,34 @@ function ProjectsPage() {
           <Typography>Нет проектов для отображения.</Typography>
         )}
       </Paper>
+
+      {/* Диалог для назначения лидера */}
+      <Dialog open={isLeaderDialogOpen} onClose={handleCloseLeaderDialog}>
+        <DialogTitle>Назначить лидера проекта</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth>
+            <InputLabel id="leader-select-label">Пользователь</InputLabel>
+            <Select
+              labelId="leader-select-label"
+              value={selectedLeaderId}
+              label="Пользователь"
+              onChange={(e) => setSelectedLeaderId(e.target.value)}
+            >
+              {users.map((u) => (
+                <MenuItem key={u.id} value={u.id}>
+                  {u.username} (ID: {u.id})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseLeaderDialog}>Отмена</Button>
+          <Button variant="contained" color="primary" onClick={handleAssignLeader}>
+            Назначить
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar для уведомлений */}
       <Snackbar

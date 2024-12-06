@@ -12,6 +12,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import SearchPage from './pages/SearchPage';
 import UserDetailPage from './pages/UserDetailPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
 
 function App() {
   const { user } = useContext(AuthContext);
@@ -82,6 +83,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ProjectsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId"
+          element={
+            <ProtectedRoute>
+              <ProjectDetailPage />
             </ProtectedRoute>
           }
         />
