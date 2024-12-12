@@ -33,3 +33,6 @@ frontend/.env
 # IDE files
 .vscode/
 .idea/
+
+# File storage files
+backend/uploads

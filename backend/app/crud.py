@@ -1,13 +1,15 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from passlib.context import CryptContext
+from typing import List
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Пользователи
+pwd_context = PasslibContext = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def get_user(db: Session, user_id: int):
-    return db.query(models.User).filter(models.User.id == user_id).first()
+    return db.query(models.User)\
+             .options(joinedload(models.User.assigned_tasks))\
+             .filter(models.User.id == user_id)\
+             .first()
 
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
@@ -49,8 +51,6 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
         db.refresh(user)
     return user
 
-# Проекты
-
 def get_project(db: Session, project_id: int):
     return db.query(models.Project).filter(models.Project.id == project_id).first()
 
@@ -58,13 +58,46 @@ def get_projects(db: Session):
     return db.query(models.Project).all()
 
 def create_project(db: Session, project: schemas.ProjectCreate):
-    db_project = models.Project(**project.dict())
+    db_project = models.Project(
+        name=project.name,
+        description=project.description
+    )
     db.add(db_project)
     db.commit()
     db.refresh(db_project)
     return db_project
 
-# Задачи
+def get_project_with_details(db: Session, project_id: int):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        return None
+
+    tasks = db.query(models.Task).filter(models.Task.project_id == project_id).all()
+
+    participants_set = set(project.participants)
+
+    for task in tasks:
+        if task.assigned_user and task.assigned_user not in participants_set:
+            participants_set.add(task.assigned_user)
+
+    participants = list(participants_set)
+
+    return project, tasks, participants
+
+def add_participant_to_project(db: Session, project_id: int, user_id: int):
+    project = get_project(db, project_id)
+    if not project:
+        return None
+    user = get_user(db, user_id)
+    if not user:
+        return None
+    # Проверим, не добавлен ли уже пользователь
+    if user in project.participants:
+        return project  # пользователь уже есть
+    project.participants.append(user)
+    db.commit()
+    db.refresh(project)
+    return project
 
 def get_task(db: Session, task_id: int):
     return db.query(models.Task).filter(models.Task.id == task_id).first()
@@ -96,8 +129,6 @@ def update_task(db: Session, task: models.Task, task_update: schemas.TaskUpdate)
     db.refresh(task)
     return task
 
-# Комментарии
-
 def create_comment(db: Session, comment: schemas.CommentCreate, user_id: int, task_id: int):
     db_comment = models.Comment(content=comment.content, user_id=user_id, task_id=task_id)
     db.add(db_comment)
@@ -107,8 +138,6 @@ def create_comment(db: Session, comment: schemas.CommentCreate, user_id: int, ta
 
 def get_comments_by_task(db: Session, task_id: int):
     return db.query(models.Comment).filter(models.Comment.task_id == task_id).all()
-
-# Вложения
 
 def create_attachment(db: Session, attachment: schemas.AttachmentCreate, task_id: int, file_url: str):
     db_attachment = models.Attachment(
@@ -124,12 +153,8 @@ def create_attachment(db: Session, attachment: schemas.AttachmentCreate, task_id
 def get_attachments_by_task(db: Session, task_id: int):
     return db.query(models.Attachment).filter(models.Attachment.task_id == task_id).all()
 
-# Подзадачи
-
 def create_subtask(db: Session, task: schemas.TaskCreate, creator_id: int):
     return create_task(db, task, creator_id)
-
-# Поиск по сайту
 
 def search_tasks(db: Session, query: str):
     return (
@@ -137,7 +162,7 @@ def search_tasks(db: Session, query: str):
         .filter(models.Task.description.ilike(f"%{query}%"))
         .all()
     )
-    
+
 def search_projects(db: Session, query: str):
     return (
         db.query(models.Project)
@@ -145,7 +170,6 @@ def search_projects(db: Session, query: str):
         .all()
     )
 
-# Удаление пользователя
 def delete_user(db: Session, user_id: int):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user:
@@ -154,7 +178,6 @@ def delete_user(db: Session, user_id: int):
         return True
     return False
 
-# Удаление проекта
 def delete_project(db: Session, project_id: int):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if project:
@@ -163,11 +186,35 @@ def delete_project(db: Session, project_id: int):
         return True
     return False
 
-# Удаление задачи
 def delete_task(db: Session, task_id: int):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if task:
         db.delete(task)
+        db.commit()
+        return True
+    return False
+
+def assign_leader(db: Session, project_id: int, user_id: int):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        return None
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        return None
+    project.leader_id = user_id
+    db.commit()
+    db.refresh(project)
+    return project
+
+def remove_participant_from_project(db: Session, project_id: int, user_id: int):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        return False
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        return False
+    if user in project.participants:
+        project.participants.remove(user)
         db.commit()
         return True
     return False

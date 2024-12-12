@@ -1,20 +1,52 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom'; // Импортируем useNavigate
+import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import TaskService from '../services/TaskService';
 import AuthService from '../services/AuthService';
+import {
+  Container,
+  Typography,
+  TextField,
+  Button,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Snackbar,
+  Alert,
+  Box,
+} from '@mui/material';
+import Grid from '@mui/material/Grid';
+import DeleteIcon from '@mui/icons-material/Delete';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import AddIcon from '@mui/icons-material/Add';
 
 function TaskDetailPage() {
   const { taskId } = useParams();
-  const navigate = useNavigate(); // Инициализируем navigate
+  const navigate = useNavigate();
   const [task, setTask] = useState(null);
+  const [parentTask, setParentTask] = useState(null);
   const [commentContent, setCommentContent] = useState('');
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState('');
   const [estimatedTime, setEstimatedTime] = useState('');
   const [timeSpent, setTimeSpent] = useState('');
   const [details, setDetails] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState('');
 
   const currentUserRole = AuthService.getUserRole();
+
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
 
   useEffect(() => {
     loadTask();
@@ -33,10 +65,29 @@ function TaskDetailPage() {
         setEstimatedTime(data.estimated_time);
         setTimeSpent(data.time_spent);
         setDetails(data.details || '');
+        setDescription(data.description);
+        setPriority(data.priority);
+
+        if (data.parent_task_id) {
+          loadParentTask(data.parent_task_id);
+        } else {
+          setParentTask(null);
+        }
       })
       .catch((error) => {
         console.error('Ошибка при загрузке задачи:', error);
-        alert('Не удалось загрузить задачу');
+        showSnackbar('Не удалось загрузить задачу', 'error');
+      });
+  };
+
+  const loadParentTask = (parentTaskId) => {
+    TaskService.getTask(parentTaskId)
+      .then((response) => {
+        setParentTask(response.data);
+      })
+      .catch((error) => {
+        console.error('Ошибка при загрузке родительской задачи:', error);
+        showSnackbar('Не удалось загрузить родительскую задачу', 'error');
       });
   };
 
@@ -46,10 +97,11 @@ function TaskDetailPage() {
       .then(() => {
         setCommentContent('');
         loadTask();
+        showSnackbar('Комментарий добавлен', 'success');
       })
       .catch((error) => {
         console.error('Ошибка при добавлении комментария:', error);
-        alert('Не удалось добавить комментарий');
+        showSnackbar('Не удалось добавить комментарий', 'error');
       });
   };
 
@@ -61,10 +113,11 @@ function TaskDetailPage() {
       .then(() => {
         setFile(null);
         loadTask();
+        showSnackbar('Файл загружен', 'success');
       })
       .catch((error) => {
         console.error('Ошибка при загрузке файла:', error);
-        alert('Не удалось загрузить файл');
+        showSnackbar('Не удалось загрузить файл', 'error');
       });
   };
 
@@ -74,15 +127,19 @@ function TaskDetailPage() {
       estimated_time: parseFloat(estimatedTime),
       time_spent: parseFloat(timeSpent),
       details,
+      description,
+      priority,
     };
     TaskService.updateTask(taskId, taskData)
       .then(() => {
         loadTask();
-        alert('Задача успешно обновлена');
+        showSnackbar('Задача успешно обновлена', 'success');
+        setIsEditingDescription(false);
+        setIsEditingDetails(false);
       })
       .catch((error) => {
         console.error('Ошибка при обновлении задачи:', error);
-        alert('Не удалось обновить задачу');
+        showSnackbar('Не удалось обновить задачу', 'error');
       });
   };
 
@@ -92,142 +149,387 @@ function TaskDetailPage() {
 
     try {
       await TaskService.deleteTask(taskId);
-      alert('Задача успешно удалена');
-      navigate('/tasks'); // Перенаправление на страницу задач после удаления
+      showSnackbar('Задача успешно удалена', 'success');
+      navigate('/tasks');
     } catch (error) {
       console.error('Ошибка при удалении задачи:', error);
-      alert('Не удалось удалить задачу');
+      showSnackbar('Не удалось удалить задачу', 'error');
     }
   };
 
+  const showSnackbar = (message, severity) => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setOpenSnackbar(true);
+  };
+
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') return;
+    setOpenSnackbar(false);
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return '-';
+    const options = { 
+      year: 'numeric', month: 'short', day: 'numeric', 
+      hour: '2-digit', minute: '2-digit' 
+    };
+    return new Date(dateTimeString).toLocaleDateString(undefined, options);
+  };
+
   if (!task) {
-    return <div>Загрузка...</div>;
+    return (
+      <Container>
+        <Typography variant="h6">Загрузка...</Typography>
+      </Container>
+    );
   }
 
   return (
-    <div>
-      <h2>Детали задачи</h2>
-      {task.parent_task_id && (
-        <p>
-          Родительская задача:{' '}
-          <Link to={`/tasks/${task.parent_task_id}`}>Перейти к родительской задаче</Link>
-        </p>
-      )}
-      <p>
-        <strong>Описание:</strong> {task.description}
-      </p>
-      <p>
-        <strong>Подробное описание:</strong>{' '}
-        {(currentUserRole === 'admin' || currentUserRole === 'manager') ? (
-          <textarea
-            value={details}
-            onChange={(e) => setDetails(e.target.value)}
-            rows="4"
-            cols="50"
-          />
+    <Container>
+      <Typography variant="h4" gutterBottom>
+        Детали задачи
+      </Typography>
+      <Paper sx={{ padding: 4, marginBottom: 5 }}>
+        <Grid container spacing={4}>
+          {task.parent_task_id && parentTask && (
+            <Grid item xs={12}>
+              <Typography variant="subtitle1">
+                Родительская задача:{' '}
+                <RouterLink
+                  to={`/tasks/${parentTask.id}`}
+                  style={{ textDecoration: 'none', color: '#1976d2' }}
+                >
+                  Перейти к родительской задаче
+                </RouterLink>{' '}
+                (ID: {parentTask.id}) - {parentTask.description}
+              </Typography>
+            </Grid>
+          )}
+
+          {task.parent_task_id && !parentTask && (
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" color="textSecondary">
+                Родительская задача не найдена
+              </Typography>
+            </Grid>
+          )}
+
+          {/* Название задачи: делаем более заметным */}
+          <Grid item xs={12}>
+            <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold' }}>
+              Название задачи:
+            </Typography>
+            {isEditingDescription ? (
+              <TextField
+                fullWidth
+                variant="outlined"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                size="medium"
+                onBlur={() => handleUpdateTask()}
+              />
+            ) : (
+              <Typography 
+                onClick={() => { if(currentUserRole !== 'executor') setIsEditingDescription(true) }}
+                sx={{ 
+                  cursor: currentUserRole !== 'executor' ? 'pointer' : 'default',
+                  mt:1,
+                  fontSize: '1.2rem', // чуть крупнее текст
+                  fontWeight: 'medium'
+                }}
+              >
+                {description || '-'}
+              </Typography>
+            )}
+          </Grid>
+
+          {/* Статус */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Статус:</Typography>
+            {currentUserRole !== 'executor' ? (
+              <FormControl fullWidth variant="outlined" size="medium">
+                <InputLabel id="status-label">Статус</InputLabel>
+                <Select
+                  labelId="status-label"
+                  value={status}
+                  label="Статус"
+                  onChange={(e) => setStatus(e.target.value)}
+                  onBlur={handleUpdateTask}
+                >
+                  <MenuItem value="Новая">Новая</MenuItem>
+                  <MenuItem value="В процессе">В процессе</MenuItem>
+                  <MenuItem value="Завершена">Завершена</MenuItem>
+                </Select>
+              </FormControl>
+            ) : (
+              <Typography>{task.status}</Typography>
+            )}
+          </Grid>
+
+          {/* Приоритет */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Приоритет:</Typography>
+            <FormControl fullWidth variant="outlined" size="medium">
+              <InputLabel id="priority-label">Приоритет</InputLabel>
+              <Select
+                labelId="priority-label"
+                value={priority}
+                label="Приоритет"
+                onChange={(e) => setPriority(e.target.value)}
+                onBlur={handleUpdateTask}
+              >
+                <MenuItem value="Низкий">Низкий</MenuItem>
+                <MenuItem value="Средний">Средний</MenuItem>
+                <MenuItem value="Высокий">Высокий</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Оценочное время */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Оценочное время (ч):</Typography>
+            {currentUserRole !== 'executor' ? (
+              <TextField
+                type="number"
+                fullWidth
+                variant="outlined"
+                value={estimatedTime}
+                onChange={(e) => setEstimatedTime(e.target.value)}
+                size="medium"
+                onBlur={handleUpdateTask}
+              />
+            ) : (
+              <Typography>{`${task.estimated_time} ч`}</Typography>
+            )}
+          </Grid>
+
+          {/* Потраченное время */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Потраченное время (ч):</Typography>
+            <TextField
+              type="number"
+              fullWidth
+              variant="outlined"
+              value={timeSpent}
+              onChange={(e) => setTimeSpent(e.target.value)}
+              size="medium"
+              onBlur={handleUpdateTask}
+            />
+          </Grid>
+
+          {/* Назначен */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Назначен:</Typography>
+            <Typography>{task.assigned_user ? task.assigned_user.username : '-'}</Typography>
+          </Grid>
+
+          {/* Назначил */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Назначил:</Typography>
+            <Typography>{task.creator ? task.creator.username : '-'}</Typography>
+          </Grid>
+
+          {/* Дата назначения */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Дата назначения:</Typography>
+            <Typography>{formatDateTime(task.created_at)}</Typography>
+          </Grid>
+
+          {/* Подробное описание с переносом слов */}
+          <Grid item xs={12}>
+            <Typography variant="h6" sx={{ mb:1 }}>Подробное описание:</Typography>
+            {isEditingDetails ? (
+              <TextField
+                multiline
+                rows={4}
+                fullWidth
+                variant="outlined"
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                size="medium"
+                onBlur={() => handleUpdateTask()}
+              />
+            ) : (
+              <Typography 
+                onClick={() => { if(currentUserRole === 'admin' || currentUserRole === 'manager') setIsEditingDetails(true); }}
+                sx={{ 
+                  cursor: (currentUserRole === 'admin' || currentUserRole === 'manager') ? 'pointer' : 'default',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word'
+                }}
+              >
+                {details || '-'}
+              </Typography>
+            )}
+          </Grid>
+
+          <Grid item xs={12}>
+            <Box display="flex" alignItems="center" gap={2}>
+              {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={handleDeleteTask}
+                  size="large"
+                >
+                  Удалить задачу
+                </Button>
+              )}
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Комментарии */}
+      <Typography variant="h5" gutterBottom>
+        Комментарии
+      </Typography>
+      <Paper sx={{ padding: 4, marginBottom: 5 }}>
+        {task.comments && task.comments.length > 0 ? (
+          <List>
+            {task.comments.map((comment) => (
+              <ListItem key={comment.id} alignItems="flex-start">
+                <ListItemText
+                  primary={comment.content}
+                  secondary={`Автор: ${comment.user.username}`}
+                />
+              </ListItem>
+            ))}
+          </List>
         ) : (
-          <p>{details}</p>
+          <Typography>Нет комментариев.</Typography>
         )}
-      </p>
-      <p>
-        <strong>Статус:</strong>{' '}
-        {currentUserRole !== 'executor' ? (
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="Новая">Новая</option>
-            <option value="В процессе">В процессе</option>
-            <option value="Завершена">Завершена</option>
-          </select>
-        ) : (
-          task.status
-        )}
-      </p>
-      <p>
-        <strong>Оценочное время:</strong>{' '}
-        {currentUserRole !== 'executor' ? (
-          <input
-            type="number"
-            step="0.1"
-            value={estimatedTime}
-            onChange={(e) => setEstimatedTime(e.target.value)}
+        <Box sx={{ mt: 3 }}>
+          <TextField
+            label="Добавить комментарий"
+            multiline
+            rows={3}
+            fullWidth
+            variant="outlined"
+            value={commentContent}
+            onChange={(e) => setCommentContent(e.target.value)}
+            size="medium"
           />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleAddComment}
+            sx={{ mt: 2 }}
+            startIcon={<AddIcon />}
+            size="large"
+          >
+            Добавить комментарий
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Вложения */}
+      <Typography variant="h5" gutterBottom>
+        Вложения
+      </Typography>
+      <Paper sx={{ padding: 4, marginBottom: 5 }}>
+        {task.attachments && task.attachments.length > 0 ? (
+          <List>
+            {task.attachments.map((attachment) => (
+              <ListItem key={attachment.id}>
+                <ListItemText
+                  primary={
+                    <a
+                      href={`http://localhost:8000/uploads/${attachment.filename}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: 'none', color: '#1976d2' }}
+                    >
+                      {attachment.filename}
+                    </a>
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
         ) : (
-          `${task.estimated_time} ч`
-        )}{' '}
-        часов
-      </p>
-      <p>
-        <strong>Потраченное время:</strong>{' '}
-        <input
-          type="number"
-          step="0.1"
-          value={timeSpent}
-          onChange={(e) => setTimeSpent(e.target.value)}
-        />{' '}
-        часов
-      </p>
-      <button onClick={handleUpdateTask}>Сохранить изменения</button>
+          <Typography>Нет вложений.</Typography>
+        )}
+        <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
+          <Button
+            variant="contained"
+            component="label"
+            startIcon={<UploadFileIcon />}
+            size="large"
+          >
+            Выбрать файл
+            <input
+              type="file"
+              hidden
+              onChange={(e) => setFile(e.target.files[0])}
+            />
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleUploadAttachment}
+            disabled={!file}
+            startIcon={<UploadFileIcon />}
+            size="large"
+          >
+            Загрузить файл
+          </Button>
+        </Box>
+      </Paper>
 
-      {/* Кнопка удаления задачи */}
-      {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
-        <button
-          onClick={handleDeleteTask}
-          style={{ marginLeft: '10px', color: 'red' }}
-        >
-          Удалить задачу
-        </button>
-      )}
+      {/* Подзадачи */}
+      <Typography variant="h5" gutterBottom>
+        Подзадачи
+      </Typography>
+      <Paper sx={{ padding: 4, marginBottom: 5 }}>
+        {task.subtasks && task.subtasks.length > 0 ? (
+          <List>
+            {task.subtasks.map((subtask) => (
+              <ListItem key={subtask.id}>
+                <ListItemText
+                  primary={
+                    <RouterLink
+                      to={`/tasks/${subtask.id}`}
+                      style={{ textDecoration: 'none', color: '#1976d2' }}
+                    >
+                      {subtask.description}
+                    </RouterLink>
+                  }
+                  secondary={`Статус: ${subtask.status}`}
+                />
+              </ListItem>
+            ))}
+          </List>
+        ) : (
+          <Typography>Нет подзадач.</Typography>
+        )}
+        {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
+          <Button
+            variant="contained"
+            color="secondary"
+            component={RouterLink}
+            to={`/tasks/${task.id}/create-subtask`}
+            sx={{ mt: 3 }}
+            startIcon={<AddIcon />}
+            size="large"
+          >
+            Создать подзадачу
+          </Button>
+        )}
+      </Paper>
 
-      <h3>Комментарии</h3>
-      <ul>
-        {task.comments && task.comments.map((comment) => (
-          <li key={comment.id}>
-            <p>{comment.content}</p>
-            <p>
-              <em>Автор: {comment.user.username}</em>
-            </p>
-          </li>
-        ))}
-      </ul>
-      <textarea
-        placeholder="Добавить комментарий"
-        value={commentContent}
-        onChange={(e) => setCommentContent(e.target.value)}
-        rows="3"
-        cols="50"
-      />
-      <button onClick={handleAddComment}>Добавить комментарий</button>
-
-      <h3>Вложения</h3>
-      <ul>
-        {task.attachments && task.attachments.map((attachment) => (
-          <li key={attachment.id}>
-            <a
-              href={`http://localhost:8000/uploads/${attachment.filename}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {attachment.filename}
-            </a>
-          </li>
-        ))}
-      </ul>
-      <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-      <button onClick={handleUploadAttachment}>Загрузить файл</button>
-
-      <h3>Подзадачи</h3>
-      <ul>
-        {task.subtasks && task.subtasks.map((subtask) => (
-          <li key={subtask.id}>
-            <p>{subtask.description}</p>
-            <p>Статус: {subtask.status}</p>
-            <Link to={`/tasks/${subtask.id}`}>Перейти к подзадаче</Link>
-          </li>
-        ))}
-      </ul>
-      {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
-        <Link to={`/tasks/${task.id}/create-subtask`}>Создать подзадачу</Link>
-      )}
-    </div>
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+    </Container>
   );
 }
 

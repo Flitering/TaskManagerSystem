@@ -8,7 +8,11 @@ from app.models import RoleEnum, Role
 from app.auth import get_password_hash
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+app = FastAPI(
+    title="Task Manager System",
+    description="API для управления задачами, проектами и пользователями.",
+    version="1.0.0",
+)
 
 # Путь к директории загрузок
 UPLOADS_DIR = "uploads"
@@ -17,9 +21,6 @@ UPLOADS_DIR = "uploads"
 if not os.path.exists(UPLOADS_DIR):
     os.makedirs(UPLOADS_DIR)
     print(f"Создана директория '{UPLOADS_DIR}'.")
-
-# Монтирование статических файлов
-app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 # Настройка CORS
 app.add_middleware(

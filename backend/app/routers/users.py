@@ -36,7 +36,7 @@ def get_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    if current_user.id != user_id and current_user.role.name != 'admin':
+    if current_user.id != user_id and current_user.role.name != RoleEnum.admin.value:
         raise HTTPException(status_code=403, detail="Недостаточно прав для выполнения операции")
     user = crud.get_user(db, user_id)
     if not user:
@@ -50,10 +50,10 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    if current_user.id != user_id and current_user.role.name != 'admin':
+    if current_user.id != user_id and current_user.role.name != RoleEnum.admin.value:
         raise HTTPException(status_code=403, detail="Недостаточно прав для выполнения операции")
     # Если редактируется роль, только администратор может это делать
-    if user_update.role is not None and current_user.role.name != 'admin':
+    if user_update.role is not None and current_user.role.name != RoleEnum.admin.value:
         raise HTTPException(status_code=403, detail="Только администратор может изменять роль пользователя")
     user = crud.update_user(db, user_id, user_update)
     if not user:

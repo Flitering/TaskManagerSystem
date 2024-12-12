@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime, Float, Table
 from sqlalchemy.orm import relationship, backref
 from app.database import Base
 from datetime import datetime
@@ -14,8 +14,15 @@ class Role(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(Enum(RoleEnum), unique=True, nullable=False)
-
     users = relationship("User", back_populates="role")
+
+# Ассоциационная таблица для участников проекта
+project_participants = Table(
+    "project_participants",
+    Base.metadata,
+    Column("project_id", Integer, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+)
 
 class User(Base):
     __tablename__ = "users"
@@ -28,9 +35,11 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
 
     role = relationship("Role", back_populates="users")
-    tasks_assigned = relationship("Task", back_populates="assigned_user", foreign_keys='Task.assigned_user_id')
+    assigned_tasks = relationship("Task", back_populates="assigned_user", foreign_keys='Task.assigned_user_id')
     tasks_created = relationship("Task", back_populates="creator", foreign_keys='Task.creator_id')
     comments = relationship("Comment", back_populates="user", cascade="all, delete-orphan")
+    # через project_participants будет доступ к проектам, в которых участвует пользователь:
+    participated_projects = relationship("Project", secondary=project_participants, back_populates="participants")
 
 class Project(Base):
     __tablename__ = "projects"
@@ -38,8 +47,12 @@ class Project(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     description = Column(String, nullable=True)
-
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    leader_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    leader = relationship("User", foreign_keys=[leader_id])
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
+    # участники проекта
+    participants = relationship("User", secondary=project_participants, back_populates="participated_projects")
 
 class TaskStatus(str, enum.Enum):
     new = "Новая"
@@ -88,15 +101,13 @@ class Task(Base):
     estimated_time = Column(Float, default=0.0)
     time_spent = Column(Float, default=0.0)
     parent_task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
+    assignment_date = Column(DateTime, default=datetime.utcnow, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     project = relationship("Project", back_populates="tasks")
-    assigned_user = relationship("User", back_populates="tasks_assigned", foreign_keys=[assigned_user_id])
+    assigned_user = relationship("User", back_populates="assigned_tasks", foreign_keys=[assigned_user_id])
     creator = relationship("User", back_populates="tasks_created", foreign_keys=[creator_id])
-    parent_task = relationship(
-        "Task",
-        remote_side=[id],
-        backref=backref("subtasks", cascade="all, delete-orphan")
-    )
+    parent_task = relationship("Task", remote_side=[id], backref=backref("subtasks", cascade="all, delete-orphan"))
 
     comments = relationship("Comment", back_populates="task", cascade="all, delete-orphan")
     attachments = relationship("Attachment", back_populates="task", cascade="all, delete-orphan")
