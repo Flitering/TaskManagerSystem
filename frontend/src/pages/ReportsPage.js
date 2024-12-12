@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ReportService from '../services/ReportService';
+import ProjectService from '../services/ProjectService';
 import {
   Container,
   Typography,
@@ -8,6 +9,11 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Box
 } from '@mui/material';
 import {
   PieChart,
@@ -22,13 +28,33 @@ function ReportsPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Состояния для уведомлений
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
+  // Список проектов для выбора
+  const [projects, setProjects] = useState([]);
+  // Выбранный проект
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+
   useEffect(() => {
-    ReportService.getTaskStatistics()
+    // Загружаем список проектов
+    ProjectService.getProjects()
+      .then((response) => {
+        setProjects(response.data);
+      })
+      .catch((error) => {
+        console.error('Ошибка загрузки проектов:', error);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadStatistics(selectedProjectId);
+  }, [selectedProjectId]);
+
+  const loadStatistics = (projectId) => {
+    setLoading(true);
+    ReportService.getTaskStatistics(projectId) 
       .then((response) => {
         setStats(response.data);
         setLoading(false);
@@ -38,7 +64,7 @@ function ReportsPage() {
         showSnackbar('Не удалось загрузить отчёты', 'error');
         setLoading(false);
       });
-  }, []);
+  };
 
   const showSnackbar = (message, severity) => {
     setSnackbarMessage(message);
@@ -51,14 +77,12 @@ function ReportsPage() {
     setOpenSnackbar(false);
   };
 
-  // Цвета для статусов задач
   const COLORS = {
-    new: '#8884d8',          // Фиолетовый для новых задач
-    in_progress: '#82ca9d',  // Зеленый для задач в процессе
-    completed: '#ffc658',    // Желтый для завершённых задач
+    new: '#8884d8',
+    in_progress: '#82ca9d',
+    completed: '#ffc658',
   };
 
-  // Подготовка данных для PieChart
   const prepareChartData = () => {
     if (!stats) return [];
 
@@ -76,6 +100,27 @@ function ReportsPage() {
       <Typography variant="h4" gutterBottom>
         Отчёты
       </Typography>
+
+      {/* Выбор проекта */}
+      <Box sx={{ marginBottom: 4 }}>
+        <FormControl fullWidth sx={{ maxWidth: 300 }}>
+          <InputLabel id="project-select-label">Проект</InputLabel>
+          <Select
+            labelId="project-select-label"
+            value={selectedProjectId}
+            label="Проект"
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+          >
+            <MenuItem value="">Все проекты</MenuItem>
+            {projects.map((proj) => (
+              <MenuItem key={proj.id} value={proj.id}>
+                {proj.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+
       <Paper sx={{ padding: 3, marginBottom: 4 }}>
         {loading ? (
           <CircularProgress />
@@ -111,7 +156,6 @@ function ReportsPage() {
         )}
       </Paper>
 
-      {/* Донат График */}
       <Paper sx={{ padding: 3 }}>
         <Typography variant="h5" gutterBottom>
           Статус Задач
@@ -145,7 +189,6 @@ function ReportsPage() {
         )}
       </Paper>
 
-      {/* Snackbar для уведомлений */}
       <Snackbar
         open={openSnackbar}
         autoHideDuration={6000}

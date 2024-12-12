@@ -71,14 +71,17 @@ def get_project_with_details(db: Session, project_id: int):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         return None
-    
+
     tasks = db.query(models.Task).filter(models.Task.project_id == project_id).all()
-    # Собираем участников
-    user_ids = set([t.assigned_user_id for t in tasks if t.assigned_user_id is not None])
-    participants = []
-    if user_ids:
-        participants = db.query(models.User).filter(models.User.id.in_(user_ids)).all()
-    
+
+    participants_set = set(project.participants)
+
+    for task in tasks:
+        if task.assigned_user and task.assigned_user not in participants_set:
+            participants_set.add(task.assigned_user)
+
+    participants = list(participants_set)
+
     return project, tasks, participants
 
 def add_participant_to_project(db: Session, project_id: int, user_id: int):
@@ -202,3 +205,16 @@ def assign_leader(db: Session, project_id: int, user_id: int):
     db.commit()
     db.refresh(project)
     return project
+
+def remove_participant_from_project(db: Session, project_id: int, user_id: int):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        return False
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        return False
+    if user in project.participants:
+        project.participants.remove(user)
+        db.commit()
+        return True
+    return False

@@ -1,8 +1,12 @@
 import api from './api';
 
 class ReportService {
-  getTaskStatistics() {
-    return api.get('/reports/task-stats');
+  getTaskStatistics(projectId) {
+    const params = {};
+    if (projectId) {
+      params.project_id = projectId;
+    }
+    return api.get('/reports/task-stats', { params });
   }
 }
 

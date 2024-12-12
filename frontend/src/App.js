@@ -1,6 +1,7 @@
-import React, { useContext } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useContext, useEffect } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'; // Добавим useLocation, useNavigate
 import { AuthContext } from './context/AuthContext';
+import AuthService from './services/AuthService'; // Импортируем AuthService
 import LoginPage from './pages/LoginPage';
 import TasksPage from './pages/TasksPage';
 import TaskDetailPage from './pages/TaskDetailPage';
@@ -16,6 +17,16 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
 
 function App() {
   const { user } = useContext(AuthContext);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const currentUser = AuthService.getCurrentUser();
+    // Если находимся на странице логина (path === '/') и у нас есть токен, перенаправляем на /projects
+    if (currentUser && currentUser.access_token && location.pathname === '/') {
+      navigate('/projects');
+    }
+  }, [location, navigate]);
 
   return (
     <>

@@ -29,7 +29,7 @@ function TaskDetailPage() {
   const { taskId } = useParams();
   const navigate = useNavigate();
   const [task, setTask] = useState(null);
-  const [parentTask, setParentTask] = useState(null); // Состояние для родительской задачи
+  const [parentTask, setParentTask] = useState(null);
   const [commentContent, setCommentContent] = useState('');
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState('');
@@ -37,13 +37,16 @@ function TaskDetailPage() {
   const [timeSpent, setTimeSpent] = useState('');
   const [details, setDetails] = useState('');
   const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState('');
 
   const currentUserRole = AuthService.getUserRole();
 
-  // Состояния для уведомлений
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
 
   useEffect(() => {
     loadTask();
@@ -63,8 +66,8 @@ function TaskDetailPage() {
         setTimeSpent(data.time_spent);
         setDetails(data.details || '');
         setDescription(data.description);
+        setPriority(data.priority);
 
-        // Если есть родительская задача, загрузим её детали
         if (data.parent_task_id) {
           loadParentTask(data.parent_task_id);
         } else {
@@ -125,11 +128,14 @@ function TaskDetailPage() {
       time_spent: parseFloat(timeSpent),
       details,
       description,
+      priority,
     };
     TaskService.updateTask(taskId, taskData)
       .then(() => {
         loadTask();
         showSnackbar('Задача успешно обновлена', 'success');
+        setIsEditingDescription(false);
+        setIsEditingDetails(false);
       })
       .catch((error) => {
         console.error('Ошибка при обновлении задачи:', error);
@@ -144,7 +150,7 @@ function TaskDetailPage() {
     try {
       await TaskService.deleteTask(taskId);
       showSnackbar('Задача успешно удалена', 'success');
-      navigate('/tasks'); // Перенаправление на страницу задач после удаления
+      navigate('/tasks');
     } catch (error) {
       console.error('Ошибка при удалении задачи:', error);
       showSnackbar('Не удалось удалить задачу', 'error');
@@ -162,7 +168,6 @@ function TaskDetailPage() {
     setOpenSnackbar(false);
   };
 
-  // Функция для форматирования даты
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return '-';
     const options = { 
@@ -187,7 +192,6 @@ function TaskDetailPage() {
       </Typography>
       <Paper sx={{ padding: 4, marginBottom: 5 }}>
         <Grid container spacing={4}>
-          {/* Родительская задача */}
           {task.parent_task_id && parentTask && (
             <Grid item xs={12}>
               <Typography variant="subtitle1">
@@ -202,29 +206,45 @@ function TaskDetailPage() {
               </Typography>
             </Grid>
           )}
-          {/* Если родительской задачи нет или её не удалось загрузить */}
+
           {task.parent_task_id && !parentTask && (
             <Grid item xs={12}>
-              <Typography variant="subtitle1">
-                Родительская задача:{' '}
-                <Typography component="span" color="textSecondary">
-                  Не удалось загрузить детали родительской задачи.
-                </Typography>
+              <Typography variant="subtitle1" color="textSecondary">
+                Родительская задача не найдена
               </Typography>
             </Grid>
           )}
-          {/* Описание задачи */}
+
+          {/* Название задачи: делаем более заметным */}
           <Grid item xs={12}>
-            <Typography variant="h6">Описание:</Typography>
-            <TextField
-              fullWidth
-              variant="outlined"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              size="medium"
-            />
+            <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold' }}>
+              Название задачи:
+            </Typography>
+            {isEditingDescription ? (
+              <TextField
+                fullWidth
+                variant="outlined"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                size="medium"
+                onBlur={() => handleUpdateTask()}
+              />
+            ) : (
+              <Typography 
+                onClick={() => { if(currentUserRole !== 'executor') setIsEditingDescription(true) }}
+                sx={{ 
+                  cursor: currentUserRole !== 'executor' ? 'pointer' : 'default',
+                  mt:1,
+                  fontSize: '1.2rem', // чуть крупнее текст
+                  fontWeight: 'medium'
+                }}
+              >
+                {description || '-'}
+              </Typography>
+            )}
           </Grid>
-          {/* Статус задачи */}
+
+          {/* Статус */}
           <Grid item xs={12} sm={6} md={6}>
             <Typography variant="h6">Статус:</Typography>
             {currentUserRole !== 'executor' ? (
@@ -235,6 +255,7 @@ function TaskDetailPage() {
                   value={status}
                   label="Статус"
                   onChange={(e) => setStatus(e.target.value)}
+                  onBlur={handleUpdateTask}
                 >
                   <MenuItem value="Новая">Новая</MenuItem>
                   <MenuItem value="В процессе">В процессе</MenuItem>
@@ -245,6 +266,26 @@ function TaskDetailPage() {
               <Typography>{task.status}</Typography>
             )}
           </Grid>
+
+          {/* Приоритет */}
+          <Grid item xs={12} sm={6} md={6}>
+            <Typography variant="h6">Приоритет:</Typography>
+            <FormControl fullWidth variant="outlined" size="medium">
+              <InputLabel id="priority-label">Приоритет</InputLabel>
+              <Select
+                labelId="priority-label"
+                value={priority}
+                label="Приоритет"
+                onChange={(e) => setPriority(e.target.value)}
+                onBlur={handleUpdateTask}
+              >
+                <MenuItem value="Низкий">Низкий</MenuItem>
+                <MenuItem value="Средний">Средний</MenuItem>
+                <MenuItem value="Высокий">Высокий</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
           {/* Оценочное время */}
           <Grid item xs={12} sm={6} md={6}>
             <Typography variant="h6">Оценочное время (ч):</Typography>
@@ -256,11 +297,13 @@ function TaskDetailPage() {
                 value={estimatedTime}
                 onChange={(e) => setEstimatedTime(e.target.value)}
                 size="medium"
+                onBlur={handleUpdateTask}
               />
             ) : (
               <Typography>{`${task.estimated_time} ч`}</Typography>
             )}
           </Grid>
+
           {/* Потраченное время */}
           <Grid item xs={12} sm={6} md={6}>
             <Typography variant="h6">Потраченное время (ч):</Typography>
@@ -271,27 +314,32 @@ function TaskDetailPage() {
               value={timeSpent}
               onChange={(e) => setTimeSpent(e.target.value)}
               size="medium"
+              onBlur={handleUpdateTask}
             />
           </Grid>
-          {/* Назначенный пользователь */}
+
+          {/* Назначен */}
           <Grid item xs={12} sm={6} md={6}>
             <Typography variant="h6">Назначен:</Typography>
             <Typography>{task.assigned_user ? task.assigned_user.username : '-'}</Typography>
           </Grid>
+
           {/* Назначил */}
           <Grid item xs={12} sm={6} md={6}>
             <Typography variant="h6">Назначил:</Typography>
             <Typography>{task.creator ? task.creator.username : '-'}</Typography>
           </Grid>
+
           {/* Дата назначения */}
           <Grid item xs={12} sm={6} md={6}>
             <Typography variant="h6">Дата назначения:</Typography>
             <Typography>{formatDateTime(task.created_at)}</Typography>
           </Grid>
-          {/* Подробное описание */}
+
+          {/* Подробное описание с переносом слов */}
           <Grid item xs={12}>
-            <Typography variant="h6">Подробное описание:</Typography>
-            {currentUserRole === 'admin' || currentUserRole === 'manager' ? (
+            <Typography variant="h6" sx={{ mb:1 }}>Подробное описание:</Typography>
+            {isEditingDetails ? (
               <TextField
                 multiline
                 rows={4}
@@ -300,22 +348,24 @@ function TaskDetailPage() {
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
                 size="medium"
+                onBlur={() => handleUpdateTask()}
               />
             ) : (
-              <Typography>{task.details || '-'}</Typography>
+              <Typography 
+                onClick={() => { if(currentUserRole === 'admin' || currentUserRole === 'manager') setIsEditingDetails(true); }}
+                sx={{ 
+                  cursor: (currentUserRole === 'admin' || currentUserRole === 'manager') ? 'pointer' : 'default',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word'
+                }}
+              >
+                {details || '-'}
+              </Typography>
             )}
           </Grid>
-          {/* Кнопки управления задачей */}
+
           <Grid item xs={12}>
             <Box display="flex" alignItems="center" gap={2}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleUpdateTask}
-                size="large"
-              >
-                Сохранить изменения
-              </Button>
               {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
                 <Button
                   variant="outlined"
@@ -469,7 +519,6 @@ function TaskDetailPage() {
         )}
       </Paper>
 
-      {/* Snackbar для уведомлений */}
       <Snackbar
         open={openSnackbar}
         autoHideDuration={6000}

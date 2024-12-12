@@ -24,7 +24,6 @@ import {
   IconButton,
   Snackbar,
   Alert,
-  Box,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -32,10 +31,11 @@ import AddIcon from '@mui/icons-material/Add';
 function TasksPage() {
   const [tasks, setTasks] = useState([]);
   const [description, setDescription] = useState('');
-  const [details, setDetails] = useState(''); // Подробное описание
+  const [details, setDetails] = useState('');
   const [assignedUserId, setAssignedUserId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [estimatedTime, setEstimatedTime] = useState('');
+  const [priority, setPriority] = useState('Средний');
   const [projects, setProjects] = useState([]);
   const [users, setUsers] = useState([]);
   const [openSnackbar, setOpenSnackbar] = useState(false);
@@ -91,6 +91,7 @@ function TasksPage() {
       assigned_user_id: parseInt(assignedUserId) || null,
       project_id: parseInt(projectId) || null,
       estimated_time: parseFloat(estimatedTime) || 0,
+      priority,
     };
     TaskService.createTask(taskData)
       .then(() => {
@@ -100,6 +101,7 @@ function TasksPage() {
         setAssignedUserId('');
         setProjectId('');
         setEstimatedTime('');
+        setPriority('Средний');
         showSnackbar('Задача успешно создана', 'success');
       })
       .catch((error) => {
@@ -133,7 +135,6 @@ function TasksPage() {
     setOpenSnackbar(false);
   };
 
-  // Функция для форматирования даты
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return '-';
     const options = { 
@@ -149,15 +150,15 @@ function TasksPage() {
         Задачи
       </Typography>
 
-      {/* Форма создания новой задачи */}
       {currentUserRole !== 'executor' && (
         <Paper sx={{ padding: 4, marginBottom: 5 }}>
           <Typography variant="h6" gutterBottom>
             Создать новую задачу
           </Typography>
           <Grid container spacing={4}>
-            {/* Описание задачи */}
-            <Grid item xs={12} sm={12} md={8}>
+
+            {/* Основные поля задачи */}
+            <Grid item xs={12}>
               <TextField
                 label="Описание задачи"
                 variant="outlined"
@@ -165,45 +166,12 @@ function TasksPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 size="medium"
+                sx={{ mb: 2 }}
               />
             </Grid>
-            {/* Подробное описание */}
-            <Grid item xs={12} sm={12} md={8}>
-              <TextField
-                label="Подробное описание"
-                variant="outlined"
-                fullWidth
-                multiline
-                rows={4}
-                value={details}
-                onChange={(e) => setDetails(e.target.value)}
-                size="medium"
-              />
-            </Grid>
-            {/* Назначить пользователя */}
+
             <Grid item xs={12} sm={6} md={4}>
-              <FormControl fullWidth variant="outlined" size="medium">
-                <InputLabel id="assigned-user-label">Назначить пользователя</InputLabel>
-                <Select
-                  labelId="assigned-user-label"
-                  value={assignedUserId}
-                  label="Назначить пользователя"
-                  onChange={(e) => setAssignedUserId(e.target.value)}
-                >
-                  <MenuItem value="">
-                    <em>Не назначено</em>
-                  </MenuItem>
-                  {users.map((user) => (
-                    <MenuItem key={user.id} value={user.id}>
-                      {user.username} (ID: {user.id})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            {/* Проект */}
-            <Grid item xs={12} sm={6} md={4}>
-              <FormControl fullWidth variant="outlined" size="medium">
+              <FormControl fullWidth variant="outlined" size="medium" sx={{ mb:2 }}>
                 <InputLabel id="project-label">Проект</InputLabel>
                 <Select
                   labelId="project-label"
@@ -222,27 +190,79 @@ function TasksPage() {
                 </Select>
               </FormControl>
             </Grid>
-            {/* Оценочное время */}
+
             <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                label="Оценочное время (ч)"
-                variant="outlined"
-                fullWidth
-                type="number"
-                step="0.1"
-                value={estimatedTime}
-                onChange={(e) => setEstimatedTime(e.target.value)}
-                size="medium"
-              />
+              <FormControl fullWidth variant="outlined" size="medium" sx={{ mb:2 }}>
+                <InputLabel id="assigned-user-label">Назначить пользователя</InputLabel>
+                <Select
+                  labelId="assigned-user-label"
+                  value={assignedUserId}
+                  label="Назначить пользователя"
+                  onChange={(e) => setAssignedUserId(e.target.value)}
+                >
+                  <MenuItem value="">
+                    <em>Не назначено</em>
+                  </MenuItem>
+                  {users.map((user) => (
+                    <MenuItem key={user.id} value={user.id}>
+                      {user.username} (ID: {user.id})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
-            {/* Кнопка создания задачи */}
-            <Grid item xs={12} sm={6} md={4} display="flex" alignItems="center">
+
+            {/* Дополнительные сведения отдельно */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>Дополнительные сведения</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={12} md={8}>
+                  <TextField
+                    label="Подробное описание"
+                    variant="outlined"
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={details}
+                    onChange={(e) => setDetails(e.target.value)}
+                    size="medium"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    label="Оценочное время (ч)"
+                    variant="outlined"
+                    fullWidth
+                    type="number"
+                    step="0.1"
+                    value={estimatedTime}
+                    onChange={(e) => setEstimatedTime(e.target.value)}
+                    size="medium"
+                    sx={{ mb:2 }}
+                  />
+                  <FormControl fullWidth variant="outlined" size="medium">
+                    <InputLabel id="priority-label">Приоритет</InputLabel>
+                    <Select
+                      labelId="priority-label"
+                      value={priority}
+                      label="Приоритет"
+                      onChange={(e) => setPriority(e.target.value)}
+                    >
+                      <MenuItem value="Низкий">Низкий</MenuItem>
+                      <MenuItem value="Средний">Средний</MenuItem>
+                      <MenuItem value="Высокий">Высокий</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Grid>
+
+            <Grid item xs={12}>
               <Button
                 variant="contained"
                 color="primary"
                 startIcon={<AddIcon />}
                 onClick={handleCreateTask}
-                fullWidth
                 size="large"
               >
                 Создать
@@ -252,7 +272,6 @@ function TasksPage() {
         </Paper>
       )}
 
-      {/* Таблица задач */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -319,7 +338,6 @@ function TasksPage() {
         </Table>
       </TableContainer>
 
-      {/* Snackbar для уведомлений */}
       <Snackbar
         open={openSnackbar}
         autoHideDuration={6000}

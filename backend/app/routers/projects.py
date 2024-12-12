@@ -106,3 +106,15 @@ def set_project_leader(
         participants=participants,
         leader=project_obj.leader
     )
+    
+@router.delete("/{project_id}/participants/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_participant(
+    project_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager]))
+):
+    success = crud.remove_participant_from_project(db, project_id, user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Участник или проект не найдены")
+    return

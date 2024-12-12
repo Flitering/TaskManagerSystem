@@ -21,8 +21,16 @@ const ProjectService = {
     return api.put(`/projects/${projectId}`, projectData);
   },
 
+  searchProjects(query) {
+    return api.get(`/projects/search/?query=${encodeURIComponent(query)}`);
+  },
+
   assignLeader(projectId, userId) {
     return api.post(`/projects/${projectId}/leader`, { user_id: userId });
+  },
+  
+  removeParticipant(projectId, userId) {
+    return api.delete(`/projects/${projectId}/participants/${userId}`);
   }
 };
 

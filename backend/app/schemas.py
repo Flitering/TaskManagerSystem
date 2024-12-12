@@ -139,6 +139,8 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     details: Optional[str] = None
     estimated_time: Optional[float] = None
+    priority: Optional[TaskPriority] = None
+    
     class Config:
         orm_mode = True
 

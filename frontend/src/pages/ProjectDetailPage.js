@@ -29,13 +29,15 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  LinearProgress
+  LinearProgress,
+  IconButton
 } from '@mui/material';
 
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, Legend, ResponsiveContainer } from 'recharts';
 
 function ProjectDetailPage() {
@@ -172,7 +174,7 @@ function ProjectDetailPage() {
       showSnackbar('Выберите пользователя', 'warning');
       return;
     }
-    ProjectService.addParticipant(projectId, selectedUserId)
+    ProjectService.addParticipant(projectId, parseInt(selectedUserId, 10))
       .then(() => {
         showSnackbar('Участник успешно добавлен', 'success');
         handleAddParticipantClose();
@@ -220,6 +222,38 @@ function ProjectDetailPage() {
       });
   };
 
+  // Функция для удаления задачи
+  const handleDeleteTask = (taskId, e) => {
+    e.stopPropagation(); // Чтобы не сработал переход к задаче
+    if (window.confirm('Вы уверены, что хотите удалить эту задачу?')) {
+      TaskService.deleteTask(taskId)
+        .then(() => {
+          showSnackbar('Задача успешно удалена', 'success');
+          loadProjectDetail();
+        })
+        .catch((error) => {
+          console.error('Ошибка при удалении задачи:', error);
+          showSnackbar('Не удалось удалить задачу', 'error');
+        });
+    }
+  };
+
+  // Функция для удаления участника
+  const handleRemoveParticipant = (userId, e) => {
+    e.stopPropagation();
+    if (window.confirm('Вы уверены, что хотите удалить этого участника из проекта?')) {
+      ProjectService.removeParticipant(projectId, userId)
+        .then(() => {
+          showSnackbar('Участник удален из проекта', 'success');
+          loadProjectDetail();
+        })
+        .catch((error) => {
+          console.error('Ошибка при удалении участника:', error);
+          showSnackbar('Не удалось удалить участника', 'error');
+        });
+    }
+  };
+
   // Подсчёт задач по статусам
   const totalTasks = project && project.tasks ? project.tasks.length : 0;
   const newTasksCount = project && project.tasks ? project.tasks.filter(t => t.status === 'Новая').length : 0;
@@ -251,7 +285,6 @@ function ProjectDetailPage() {
     return Array.from(map.values());
   }, [project]);
 
-  // Формируем контент для рендера (чтобы не было ранних return)
   let content;
 
   if (loading) {
@@ -454,6 +487,7 @@ function ProjectDetailPage() {
                     <TableCell>Назначено</TableCell>
                     <TableCell>Потрачено (ч)</TableCell>
                     <TableCell>Оценка (ч)</TableCell>
+                    {canEdit && <TableCell>Действия</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -470,6 +504,13 @@ function ProjectDetailPage() {
                       <TableCell>{task.assigned_user ? task.assigned_user.username : '-'}</TableCell>
                       <TableCell>{task.time_spent}</TableCell>
                       <TableCell>{task.estimated_time}</TableCell>
+                      {canEdit && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <IconButton color="error" onClick={(e) => handleDeleteTask(task.id, e)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -493,6 +534,7 @@ function ProjectDetailPage() {
                     <TableCell>Имя пользователя</TableCell>
                     <TableCell>Email</TableCell>
                     <TableCell>Роль</TableCell>
+                    {canEdit && <TableCell>Действия</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -502,6 +544,13 @@ function ProjectDetailPage() {
                       <TableCell>{user.username}</TableCell>
                       <TableCell>{user.email || '-'}</TableCell>
                       <TableCell>{user.role.name}</TableCell>
+                      {canEdit && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <IconButton color="error" onClick={(e) => handleRemoveParticipant(user.id, e)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

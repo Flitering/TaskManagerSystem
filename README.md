@@ -27,6 +27,7 @@
 - **Node.js 18** или выше
 - **npm**
 - **SQLite**
+- **Microsoft C++ Build Tools**
 
 ## Установка и запуск
 
@@ -69,6 +70,10 @@ cd ../frontend
 ### 3.2. Установка зависимостей
 
 npm install
+
+### 3.2. Установка зависимостей для отображения интерфейса
+
+npm install @mui/material @emotion/react @emotion/styled @mui/icons-material
 
 ### 3.3. Запуск фронтенда
 

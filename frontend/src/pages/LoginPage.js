@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthService from '../services/AuthService';
 import { AuthContext } from '../context/AuthContext';
@@ -20,10 +20,17 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  // Состояния для уведомлений
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+
+  // Если пользователь уже авторизован (есть токен), перенаправим на /projects
+  useEffect(() => {
+    const currentUser = AuthService.getCurrentUser();
+    if (currentUser && currentUser.access_token) {
+      navigate('/projects');
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -93,7 +100,6 @@ function LoginPage() {
         </form>
       </Paper>
 
-      {/* Snackbar для уведомлений */}
       <Snackbar
         open={openSnackbar}
         autoHideDuration={6000}
