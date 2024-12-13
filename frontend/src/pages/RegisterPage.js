@@ -1,7 +1,6 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AuthService from '../services/AuthService';
-import { AuthContext } from '../context/AuthContext';
+import UserService from '../services/UserService';
 import {
   Container,
   Typography,
@@ -11,13 +10,13 @@ import {
   Grid,
   Snackbar,
   Alert,
-  Link
 } from '@mui/material';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
-function LoginPage() {
-  const { setUser } = useContext(AuthContext);
+function RegisterPage() {
   const [username, setUsername] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
@@ -25,25 +24,25 @@ function LoginPage() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
-  useEffect(() => {
-    const currentUser = AuthService.getCurrentUser();
-    if (currentUser && currentUser.access_token) {
-      navigate('/projects');
-    }
-  }, [navigate]);
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    try {
-      const userData = await AuthService.login(username, password);
-      console.log('Logged in userData:', userData);
-      setUser(userData);
-      showSnackbar('Успешный вход', 'success');
-      navigate('/tasks');
-    } catch (error) {
-      console.error('Ошибка входа:', error);
-      showSnackbar('Неверные учетные данные', 'error');
-    }
+    const userData = {
+      username,
+      full_name: fullName,
+      email,
+      password,
+      role: 'executor' // всегда исполнитель
+    };
+
+    UserService.registerUser(userData)
+    .then(() => {
+        showSnackbar('Регистрация успешна! Можете войти.', 'success');
+        navigate('/');
+    })
+    .catch((error) => {
+        console.error('Ошибка регистрации:', error);
+        showSnackbar(error.response?.data?.detail || 'Не удалось зарегистрировать', 'error');
+    });
   };
 
   const showSnackbar = (message, severity) => {
@@ -61,7 +60,7 @@ function LoginPage() {
     <Container maxWidth="sm">
       <Paper sx={{ padding: 4, marginTop: 8 }}>
         <Typography variant="h5" gutterBottom align="center">
-          Вход в систему
+          Регистрация
         </Typography>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
@@ -73,6 +72,24 @@ function LoginPage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Полное имя"
+                variant="outlined"
+                fullWidth
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Email"
+                variant="outlined"
+                fullWidth
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </Grid>
             <Grid item xs={12}>
@@ -92,22 +109,10 @@ function LoginPage() {
                 variant="contained"
                 color="primary"
                 fullWidth
-                startIcon={<LockOpenIcon />}
+                startIcon={<PersonAddIcon />}
               >
-                Войти
+                Зарегистрироваться
               </Button>
-            </Grid>
-            <Grid item xs={12}>
-              <Typography align="center">
-                Нет аккаунта?{' '}
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => navigate('/register')}
-                >
-                  Зарегистрироваться
-                </Link>
-              </Typography>
             </Grid>
           </Grid>
         </form>
@@ -127,4 +132,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage;
+export default RegisterPage;

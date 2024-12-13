@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app import crud, schemas, models
 from app.database import get_db
 from app.dependencies import role_required, get_current_user
-from app.models import RoleEnum
+from app.models import RoleEnum, Attachment
 from datetime import datetime
 import os
 import shutil
@@ -131,4 +131,26 @@ def delete_task(
     success = crud.delete_task(db, task_id)
     if not success:
         raise HTTPException(status_code=400, detail="Не удалось удалить задачу")
+    return
+
+@router.delete("/{task_id}/attachments/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_attachment(
+    task_id: int,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager]))
+):
+    # Получаем задачу
+    task = crud.get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    # Проверяем, что вложение относится к этой задаче
+    attachment = db.query(Attachment).filter(Attachment.id == attachment_id, Attachment.task_id == task_id).first()
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Вложение не найдено или не относится к этой задаче")
+
+    db.delete(attachment)
+    db.commit()
+
     return

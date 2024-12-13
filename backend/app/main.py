@@ -7,6 +7,7 @@ from app.routers import users, auth, projects, tasks, reports
 from app.models import RoleEnum, Role
 from app.auth import get_password_hash
 from fastapi.middleware.cors import CORSMiddleware
+from app.routers import register
 
 app = FastAPI(
     title="Task Manager System",
@@ -73,5 +74,6 @@ app.include_router(users.router)
 app.include_router(tasks.router)
 app.include_router(reports.router)
 app.include_router(projects.router)
+app.include_router(register.router)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

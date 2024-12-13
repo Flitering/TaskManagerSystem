@@ -2,7 +2,7 @@ import api from './api';
 
 class TaskService {
   getTasks() {
-    return api.get('/tasks');
+    return api.get('/tasks/'); // Добавляем слэш в конце
   }
 
   getTask(taskId) {
@@ -39,6 +39,10 @@ class TaskService {
 
   deleteTask(taskId) {
     return api.delete(`/tasks/${taskId}`);
+  }
+
+  deleteAttachment(taskId, attachmentId) {
+    return api.delete(`/tasks/${taskId}/attachments/${attachmentId}`);
   }
 }
 

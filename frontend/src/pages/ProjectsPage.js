@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ProjectService from '../services/ProjectService';
 import UserService from '../services/UserService';
+import AuthService from '../services/AuthService';
 import {
   Container,
   Typography,
@@ -22,27 +23,39 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Box,
+  Divider
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import PersonIcon from '@mui/icons-material/Person';
-import { Link } from 'react-router-dom'; // Добавлено
+import SearchIcon from '@mui/icons-material/Search';
+import { Link } from 'react-router-dom';
 
 function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
 
-  // Состояния для уведомлений
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
-  // Состояния для назначения лидера
   const [isLeaderDialogOpen, setIsLeaderDialogOpen] = useState(false);
   const [leaderProjectId, setLeaderProjectId] = useState(null);
   const [users, setUsers] = useState([]);
   const [selectedLeaderId, setSelectedLeaderId] = useState('');
+
+  // Поиск проектов
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    loadProjects();
+    const currentUserRole = AuthService.getUserRole();
+    if (currentUserRole === 'admin' || currentUserRole === 'manager') {
+      loadUsers();
+    }
+  }, []);
 
   const loadProjects = () => {
     ProjectService.getProjects()
@@ -62,14 +75,8 @@ function ProjectsPage() {
       })
       .catch((error) => {
         console.error('Ошибка при загрузке пользователей:', error);
-        // Допустим не будем выводить snackbar на ошибку загрузки пользователей здесь
       });
   };
-
-  useEffect(() => {
-    loadProjects();
-    loadUsers();
-  }, []);
 
   const handleCreateProject = () => {
     if (name.trim() === '') {
@@ -119,21 +126,18 @@ function ProjectsPage() {
     setOpenSnackbar(false);
   };
 
-  // Открыть диалог для назначения лидера
   const handleOpenLeaderDialog = (projectId) => {
     setLeaderProjectId(projectId);
     setSelectedLeaderId('');
     setIsLeaderDialogOpen(true);
   };
 
-  // Закрыть диалог для назначения лидера
   const handleCloseLeaderDialog = () => {
     setIsLeaderDialogOpen(false);
     setLeaderProjectId(null);
     setSelectedLeaderId('');
   };
 
-  // Назначить лидера
   const handleAssignLeader = () => {
     if (!selectedLeaderId) {
       showSnackbar('Выберите пользователя для назначения лидером', 'warning');
@@ -151,11 +155,74 @@ function ProjectsPage() {
       });
   };
 
+  // Фильтрация проектов по поиску
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return projects;
+    return projects.filter(project =>
+      project.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [projects, searchQuery]);
+
+  // Подсчёт статистики по проектам
+  const totalProjects = projects.length;
+  const projectsWithLeader = projects.filter(p => p.leader !== null).length;
+  const projectsWithoutLeader = totalProjects - projectsWithLeader;
+
   return (
     <Container>
       <Typography variant="h4" gutterBottom>
         Проекты
       </Typography>
+
+      {/* Статистика по проектам */}
+      {totalProjects > 0 && (
+        <Paper sx={{ padding: 3, marginBottom: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Статистика по проектам
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={4}>
+              <Paper sx={{ padding: 2 }}>
+                <Typography variant="subtitle1">Всего проектов</Typography>
+                <Typography variant="h5">{totalProjects}</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Paper sx={{ padding: 2 }}>
+                <Typography variant="subtitle1">С лидером</Typography>
+                <Typography variant="h5">{projectsWithLeader}</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Paper sx={{ padding: 2 }}>
+                <Typography variant="subtitle1">Без лидера</Typography>
+                <Typography variant="h5">{projectsWithoutLeader}</Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
+
+      {/* Поиск проектов */}
+      {totalProjects > 0 && (
+        <Paper sx={{ padding: 3, marginBottom: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Поиск по проектам
+          </Typography>
+          <Box display="flex" alignItems="center" gap={2}>
+            <TextField
+              variant="outlined"
+              label="Введите название проекта"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                endAdornment: <SearchIcon />
+              }}
+              fullWidth
+            />
+          </Box>
+        </Paper>
+      )}
 
       {/* Форма создания нового проекта */}
       <Paper sx={{ padding: 3, marginBottom: 4 }}>
@@ -199,19 +266,23 @@ function ProjectsPage() {
         <Typography variant="h6" gutterBottom>
           Список проектов
         </Typography>
-        {projects && projects.length > 0 ? (
+        {filteredProjects && filteredProjects.length > 0 ? (
           <List>
-            {projects.map((project) => (
-              <ListItem 
+            {filteredProjects.map((project) => (
+              <ListItem
                 key={project.id}
                 secondaryAction={
                   <>
-                    <IconButton edge="end" color="primary" onClick={() => handleOpenLeaderDialog(project.id)}>
-                      <PersonIcon />
-                    </IconButton>
-                    <IconButton edge="end" color="error" onClick={() => handleDeleteProject(project.id)}>
-                      <DeleteIcon />
-                    </IconButton>
+                    {(AuthService.getUserRole() === 'admin' || AuthService.getUserRole() === 'manager') && (
+                      <IconButton edge="end" color="primary" onClick={() => handleOpenLeaderDialog(project.id)}>
+                        <PersonIcon />
+                      </IconButton>
+                    )}
+                    {(AuthService.getUserRole() === 'admin' || AuthService.getUserRole() === 'manager') && (
+                      <IconButton edge="end" color="error" onClick={() => handleDeleteProject(project.id)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    )}
                   </>
                 }
               >
@@ -227,7 +298,7 @@ function ProjectsPage() {
             ))}
           </List>
         ) : (
-          <Typography>Нет проектов для отображения.</Typography>
+          <Typography>Проекты не найдены.</Typography>
         )}
       </Paper>
 
@@ -235,25 +306,29 @@ function ProjectsPage() {
       <Dialog open={isLeaderDialogOpen} onClose={handleCloseLeaderDialog}>
         <DialogTitle>Назначить лидера проекта</DialogTitle>
         <DialogContent>
-          <FormControl fullWidth>
-            <InputLabel id="leader-select-label">Пользователь</InputLabel>
-            <Select
-              labelId="leader-select-label"
-              value={selectedLeaderId}
-              label="Пользователь"
-              onChange={(e) => setSelectedLeaderId(e.target.value)}
-            >
-              {users.map((u) => (
-                <MenuItem key={u.id} value={u.id}>
-                  {u.username} (ID: {u.id})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {users && users.length > 0 ? (
+            <FormControl fullWidth>
+              <InputLabel id="leader-select-label">Пользователь</InputLabel>
+              <Select
+                labelId="leader-select-label"
+                value={selectedLeaderId}
+                label="Пользователь"
+                onChange={(e) => setSelectedLeaderId(e.target.value)}
+              >
+                {users.map((u) => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {u.username} (ID: {u.id})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : (
+            <Typography>Нет пользователей для назначения лидера.</Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseLeaderDialog}>Отмена</Button>
-          <Button variant="contained" color="primary" onClick={handleAssignLeader}>
+          <Button variant="contained" color="primary" onClick={handleAssignLeader} disabled={!selectedLeaderId}>
             Назначить
           </Button>
         </DialogActions>

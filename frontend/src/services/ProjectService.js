@@ -2,11 +2,11 @@ import api from './api';
 
 const ProjectService = {
   getProjects() {
-    return api.get('/projects');
+    return api.get('/projects/'); // Добавляем слэш в конце
   },
 
   createProject(projectData) {
-    return api.post('/projects', projectData);
+    return api.post('/projects/', projectData);
   },
 
   getProjectDetail(projectId) {

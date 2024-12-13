@@ -157,6 +157,21 @@ function TaskDetailPage() {
     }
   };
 
+  const handleDeleteAttachment = (attachmentId) => {
+    const confirmDelete = window.confirm('Вы уверены, что хотите удалить этот файл?');
+    if (!confirmDelete) return;
+  
+    TaskService.deleteAttachment(taskId, attachmentId)
+      .then(() => {
+        showSnackbar('Файл успешно удалён', 'success');
+        loadTask();
+      })
+      .catch((error) => {
+        console.error('Ошибка при удалении файла:', error);
+        showSnackbar('Не удалось удалить файл', 'error');
+      });
+  };
+
   const showSnackbar = (message, severity) => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
@@ -432,19 +447,26 @@ function TaskDetailPage() {
         {task.attachments && task.attachments.length > 0 ? (
           <List>
             {task.attachments.map((attachment) => (
-              <ListItem key={attachment.id}>
-                <ListItemText
-                  primary={
-                    <a
-                      href={`http://localhost:8000/uploads/${attachment.filename}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: 'none', color: '#1976d2' }}
-                    >
-                      {attachment.filename}
-                    </a>
-                  }
-                />
+              <ListItem key={attachment.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                  <a
+                    href={`http://localhost:8000/uploads/${attachment.filename}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: 'none', color: '#1976d2' }}
+                  >
+                    {attachment.filename}
+                  </a>
+                </Box>
+                {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
+                  <IconButton
+                    color="error"
+                    onClick={() => handleDeleteAttachment(attachment.id)}
+                    aria-label="delete-attachment"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                )}
               </ListItem>
             ))}
           </List>

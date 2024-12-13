@@ -80,8 +80,10 @@ function TasksPage() {
   useEffect(() => {
     loadTasks();
     loadProjects();
-    loadUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const currentUserRole = AuthService.getUserRole();
+    if (currentUserRole === 'admin' || currentUserRole === 'manager') {
+      loadUsers(); 
+    }
   }, []);
 
   const handleCreateTask = () => {

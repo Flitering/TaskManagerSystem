@@ -28,7 +28,7 @@ class UserCreate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
     password: str
-    role: RoleEnum
+    role: Optional[RoleEnum] = None
     class Config:
         orm_mode = True
 

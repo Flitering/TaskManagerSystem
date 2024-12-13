@@ -2,7 +2,7 @@ import api from './api';
 
 class UserService {
   getUsers() {
-    return api.get('/users');
+    return api.get('/users/'); // Добавляем слэш в конце
   }
 
   getUser(userId) {
@@ -15,6 +15,10 @@ class UserService {
 
   updateUser(userId, userData) {
     return api.put(`/users/${userId}`, userData);
+  }
+
+  registerUser(userData) {
+    return api.post('/register', userData);
   }
 
   deleteUser(userId) {

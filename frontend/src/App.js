@@ -1,7 +1,9 @@
-import React, { useContext, useEffect } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'; // Добавим useLocation, useNavigate
+import React, { useContext, useEffect, useState } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from './context/AuthContext';
-import AuthService from './services/AuthService'; // Импортируем AuthService
+import AuthService from './services/AuthService';
+import UserService from './services/UserService';
+
 import LoginPage from './pages/LoginPage';
 import TasksPage from './pages/TasksPage';
 import TaskDetailPage from './pages/TaskDetailPage';
@@ -14,25 +16,55 @@ import Navbar from './components/Navbar';
 import SearchPage from './pages/SearchPage';
 import UserDetailPage from './pages/UserDetailPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import RegisterPage from './pages/RegisterPage';
 
 function App() {
-  const { user } = useContext(AuthContext);
+  const { user, setUser } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
+  
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
 
   useEffect(() => {
     const currentUser = AuthService.getCurrentUser();
-    // Если находимся на странице логина (path === '/') и у нас есть токен, перенаправляем на /projects
-    if (currentUser && currentUser.access_token && location.pathname === '/') {
-      navigate('/projects');
+    if (currentUser && currentUser.access_token) {
+      const currentUserId = AuthService.getCurrentUserId(); 
+      if (currentUserId) {
+        UserService.getUser(currentUserId)
+          .then(() => {
+            setIsAuthChecked(true);
+            if (location.pathname === '/') {
+              navigate('/projects');
+            }
+          })
+          .catch((error) => {
+            if (error.response && error.response.status === 401) {
+              AuthService.logout();
+              setUser(null);
+            }
+            setIsAuthChecked(true);
+          });
+      } else {
+        // Если получить user_id из токена не удалось, разлогиниваем и остаёмся на логине
+        AuthService.logout();
+        setUser(null);
+        setIsAuthChecked(true);
+      }
+    } else {
+      setIsAuthChecked(true);
     }
-  }, [location, navigate]);
+  }, [location, navigate, user, setUser]);
+
+  if (!isAuthChecked) {
+    return <div>Загрузка...</div>;
+  }
 
   return (
     <>
       {user && <Navbar />}
       <Routes>
         <Route path="/" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route
           path="/tasks"
           element={
