@@ -1,49 +1,54 @@
-import React, { useEffect, useState } from 'react';
-import UserService from '../services/UserService';
-import { Link } from 'react-router-dom';
-import { roleDisplayNames } from '../services/AuthService';
+import React, { useState, useEffect } from 'react';
 import {
-  Container,
-  Typography,
-  TextField,
-  Button,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Grid,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Snackbar,
-  Alert,
+  Container, Typography, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Button, IconButton, Dialog, DialogTitle, DialogContent,
+  DialogActions, TextField, FormControl, InputLabel, Select, MenuItem,
+  Snackbar, Alert
 } from '@mui/material';
+
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
+
+import UserService from '../services/UserService';
+import AuthService from '../services/AuthService';
 
 function UsersPage() {
   const [users, setUsers] = useState([]);
+  const [openForm, setOpenForm] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // id редактируемого пользователя
+  const [editUserId, setEditUserId] = useState(null);
+
+  // Поля формы
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [role, setRole] = useState('executor');
-  const [openSnackbar, setOpenSnackbar] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [password, setPassword] = useState('');
+
+  // Snackbar
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+
+  // Список ролей (Enum: admin, manager, executor)
+  const roleOptions = [
+    { value: 'admin', label: 'Администратор' },
+    { value: 'manager', label: 'Менеджер' },
+    { value: 'executor', label: 'Исполнитель' },
+  ];
+
+  // Проверка роли текущего пользователя, если хотим ограничить доступ
+  const currentUserRole = AuthService.getUserRole();
+  // если currentUserRole !== 'admin', можно показывать ошибку или убить страницу
 
   const loadUsers = () => {
     UserService.getUsers()
-      .then((response) => {
-        setUsers(response.data);
-      })
-      .catch((error) => {
-        console.error('Ошибка при загрузке пользователей:', error);
+      .then(res => setUsers(res.data))
+      .catch(err => {
+        console.error('Ошибка при загрузке пользователей:', err);
         showSnackbar('Не удалось загрузить пользователей', 'error');
       });
   };
@@ -52,176 +57,169 @@ function UsersPage() {
     loadUsers();
   }, []);
 
-  const handleCreateUser = () => {
-    const userData = {
-      username,
-      full_name: fullName,
-      email,
-      password,
-      role,
-    };
-    UserService.createUser(userData)
-      .then(() => {
-        loadUsers();
-        setUsername('');
-        setFullName('');
-        setEmail('');
-        setPassword('');
-        setRole('executor'); // Значение по умолчанию
-        showSnackbar('Пользователь успешно создан', 'success');
-      })
-      .catch((error) => {
-        console.error('Ошибка при создании пользователя:', error.response.data);
-        showSnackbar(error.response.data.detail || 'Не удалось создать пользователя', 'error');
-      });
+  const showSnackbar = (msg, severity='success') => {
+    setSnackbarMsg(msg);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  };
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') return;
+    setSnackbarOpen(false);
   };
 
-  const handleDeleteUser = async (userId) => {
-    const confirmDelete = window.confirm('Вы уверены, что хотите удалить этого пользователя?');
-    if (!confirmDelete) return;
+  const handleOpenForm = (user) => {
+    if (user) {
+      // Редактируем
+      setIsEditMode(true);
+      setEditUserId(user.id);
+      setUsername(user.username);
+      setFullName(user.full_name || '');
+      setEmail(user.email || '');
+      setRole(user.role?.name || 'executor');
+      setPassword(''); // при редактировании, если хотим сменить пароль
+    } else {
+      // Создаём
+      setIsEditMode(false);
+      setEditUserId(null);
+      setUsername('');
+      setFullName('');
+      setEmail('');
+      setRole('executor');
+      setPassword('');
+    }
+    setOpenForm(true);
+  };
 
-    try {
-      await UserService.deleteUser(userId);
-      setUsers(users.filter(user => user.id !== userId));
-      showSnackbar('Пользователь успешно удален', 'success');
-    } catch (error) {
-      console.error('Ошибка при удалении пользователя:', error);
-      showSnackbar('Не удалось удалить пользователя', 'error');
+  const handleCloseForm = () => {
+    setOpenForm(false);
+  };
+
+  const handleSaveUser = () => {
+    if (!username.trim()) {
+      showSnackbar('Имя пользователя не может быть пустым', 'warning');
+      return;
+    }
+
+    if (isEditMode) {
+      // update
+      const updateData = {
+        username, // хотя в схеме userUpdate у нас нет username, 
+                  // если нужно менять, надо править схему
+        full_name: fullName,
+        email,
+        role,
+      };
+      if (password) {
+        updateData.password = password;
+      }
+
+      UserService.updateUser(editUserId, updateData)
+        .then(() => {
+          showSnackbar('Пользователь обновлён', 'success');
+          loadUsers();
+          setOpenForm(false);
+        })
+        .catch(err => {
+          console.error('Ошибка при обновлении пользователя:', err);
+          showSnackbar('Не удалось обновить пользователя', 'error');
+        });
+    } else {
+      // create
+      const createData = {
+        username,
+        full_name: fullName,
+        email,
+        password,
+        role,
+      };
+      UserService.createUser(createData)
+        .then(() => {
+          showSnackbar('Пользователь создан', 'success');
+          loadUsers();
+          setOpenForm(false);
+        })
+        .catch(err => {
+          console.error('Ошибка при создании пользователя:', err);
+          showSnackbar('Не удалось создать пользователя', 'error');
+        });
     }
   };
 
-  const showSnackbar = (message, severity) => {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setOpenSnackbar(true);
-  };
-
-  const handleCloseSnackbar = (event, reason) => {
-    if (reason === 'clickaway') return;
-    setOpenSnackbar(false);
+  const handleDeleteUser = (userId) => {
+    if (!window.confirm('Удалить пользователя?')) return;
+    UserService.deleteUser(userId)
+      .then(() => {
+        showSnackbar('Пользователь удалён', 'success');
+        loadUsers();
+      })
+      .catch(err => {
+        console.error('Ошибка удаления пользователя:', err);
+        showSnackbar('Не удалось удалить пользователя', 'error');
+      });
   };
 
   return (
-    <Container>
+    <Container sx={{ mt: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Пользователи
+        Управление пользователями
       </Typography>
 
-      {/* Форма создания нового пользователя */}
-      <Paper sx={{ padding: 2, marginBottom: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Создать нового пользователя
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              label="Имя пользователя"
-              variant="outlined"
-              fullWidth
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              label="Полное имя"
-              variant="outlined"
-              fullWidth
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              label="Email"
-              variant="outlined"
-              fullWidth
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              label="Пароль"
-              variant="outlined"
-              fullWidth
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <FormControl fullWidth>
-              <InputLabel id="role-label">Роль</InputLabel>
-              <Select
-                labelId="role-label"
-                value={role}
-                label="Роль"
-                onChange={(e) => setRole(e.target.value)}
-              >
-                <MenuItem value="admin">Администратор</MenuItem>
-                <MenuItem value="manager">Менеджер</MenuItem>
-                <MenuItem value="executor">Исполнитель</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4} display="flex" alignItems="center">
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleCreateUser}
-            >
-              Создать
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
+      {(currentUserRole === 'admin') && (
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          sx={{ mb: 2 }}
+          onClick={() => handleOpenForm(null)}
+        >
+          Создать пользователя
+        </Button>
+      )}
 
-      {/* Таблица пользователей */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
               <TableCell>ID</TableCell>
-              <TableCell>Имя пользователя</TableCell>
+              <TableCell>Логин (username)</TableCell>
               <TableCell>Полное имя</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Роль</TableCell>
-              <TableCell align="center">Действия</TableCell>
+              <TableCell>Действия</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>{user.id}</TableCell>
-                <TableCell>{user.username}</TableCell>
-                <TableCell>{user.full_name || '-'}</TableCell>
-                <TableCell>{user.email || '-'}</TableCell>
-                <TableCell>{roleDisplayNames[user.role.name]}</TableCell>
-                <TableCell align="center">
-                  <Button
-                    variant="outlined"
-                    component={Link}
-                    to={`/users/${user.id}`}
-                    sx={{ marginRight: 1 }}
-                  >
-                    Подробнее
-                  </Button>
-                  <IconButton
-                    color="error"
-                    onClick={() => handleDeleteUser(user.id)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+            {users.map(u => (
+              <TableRow key={u.id}>
+                <TableCell>{u.id}</TableCell>
+                <TableCell>{u.username}</TableCell>
+                <TableCell>{u.full_name || '-'}</TableCell>
+                <TableCell>{u.email || '-'}</TableCell>
+                <TableCell>{u.role?.name}</TableCell>
+                <TableCell>
+                  {(currentUserRole === 'admin') && (
+                    <>
+                      <IconButton
+                        color="primary"
+                        onClick={() => handleOpenForm(u)}
+                        sx={{ mr:1 }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteUser(u.id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
             {users.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} align="center">
-                  Пользователи не найдены.
+                  Нет пользователей
                 </TableCell>
               </TableRow>
             )}
@@ -229,15 +227,77 @@ function UsersPage() {
         </Table>
       </TableContainer>
 
-      {/* Snackbar для уведомлений */}
+      {/* Модалка создания/редактирования */}
+      <Dialog open={openForm} onClose={handleCloseForm} fullWidth maxWidth="sm">
+        <DialogTitle>
+          {isEditMode ? 'Редактировать пользователя' : 'Создать пользователя'}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Имя пользователя (username)"
+            fullWidth
+            margin="normal"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            // disabled={isEditMode} // если не хотим менять username при редактировании
+          />
+          <TextField
+            label="Полное имя"
+            fullWidth
+            margin="normal"
+            value={fullName}
+            onChange={e => setFullName(e.target.value)}
+          />
+          <TextField
+            label="Email"
+            fullWidth
+            margin="normal"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+          />
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Роль</InputLabel>
+            <Select
+              value={role}
+              label="Роль"
+              onChange={e => setRole(e.target.value)}
+            >
+              {roleOptions.map(r => (
+                <MenuItem key={r.value} value={r.value}>
+                  {r.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            label={isEditMode ? 'Новый пароль (необязательно)' : 'Пароль'}
+            fullWidth
+            margin="normal"
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseForm}>Отмена</Button>
+          {(currentUserRole === 'admin') && (
+            <Button variant="contained" onClick={handleSaveUser}>
+              {isEditMode ? 'Сохранить' : 'Создать'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
       <Snackbar
-        open={openSnackbar}
-        autoHideDuration={6000}
+        open={snackbarOpen}
+        autoHideDuration={5000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
-          {snackbarMessage}
+        <Alert severity={snackbarSeverity} onClose={handleCloseSnackbar} sx={{ width: '100%' }}>
+          {snackbarMsg}
         </Alert>
       </Snackbar>
     </Container>

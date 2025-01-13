@@ -2,7 +2,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-from app.models import RoleEnum, TaskStatus, TaskPriority
+from app.models import RoleEnum, TaskStatus, TaskPriority, IssueTypeEnum
 
 class AssignLeaderData(BaseModel):
     user_id: int
@@ -123,6 +123,12 @@ class TaskBase(BaseModel):
     due_date: Optional[datetime] = None
     priority: TaskPriority = TaskPriority.medium
     estimated_time: float = 0.0
+    issue_type: IssueTypeEnum = IssueTypeEnum.task
+    labels: Optional[str] = ""
+    flagged: bool = False
+    team: Optional[str] = None
+    only_for_roles: Optional[str] = None
+
     class Config:
         orm_mode = True
 
@@ -130,6 +136,7 @@ class TaskCreate(TaskBase):
     project_id: int
     assigned_user_id: Optional[int] = None
     parent_task_id: Optional[int] = None
+    watchers: Optional[List[int]] = None
     class Config:
         orm_mode = True
 
@@ -140,7 +147,12 @@ class TaskUpdate(BaseModel):
     details: Optional[str] = None
     estimated_time: Optional[float] = None
     priority: Optional[TaskPriority] = None
-    
+    issue_type: Optional[IssueTypeEnum] = None
+    labels: Optional[str] = None
+    flagged: Optional[bool] = None
+    team: Optional[str] = None
+    only_for_roles: Optional[str] = None
+    watchers: Optional[List[int]] = None
     class Config:
         orm_mode = True
 
@@ -158,6 +170,12 @@ class TaskRead(TaskBase):
     parent_task_id: Optional[int] = None
     assignment_date: Optional[datetime] = None
     created_at: datetime
+    watchers: Optional[List[User]] = None
+
+    # Новое:
+    updated_at: Optional[datetime] = None
+    last_updated_by: Optional[User] = None
+
     class Config:
         orm_mode = True
 
@@ -184,8 +202,37 @@ class Token(BaseModel):
     token_type: str
     class Config:
         orm_mode = True
+        
+class TeamBase(BaseModel):
+    name: str
+    project_id: Optional[int] = None
 
-# Обновление forward references
+    class Config:
+        orm_mode = True
+
+class TeamCreate(BaseModel):
+    name: str
+    project_id: int
+
+    class Config:
+        orm_mode = True
+
+class TeamUpdate(BaseModel):
+    name: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+class TeamRead(BaseModel):
+    id: int
+    name: str
+    project_id: int
+    # Можно добавить members, если хотим отображать сразу пользователей
+    members: List[UserBase] = []
+
+    class Config:
+        orm_mode = True
+
 ProjectDetail.update_forward_refs()
 UserRead.update_forward_refs()
 TaskRead.update_forward_refs()

@@ -10,7 +10,7 @@ router = APIRouter(
     tags=["auth"],
 )
 
-@router.post("/token", response_model=schemas.Token)
+@router.post("/token")
 def login_for_access_token(
     db: Session = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
@@ -22,6 +22,7 @@ def login_for_access_token(
             detail="Неверные учетные данные",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
     access_token = create_access_token(
         data={
             "sub": user.username,
@@ -29,4 +30,10 @@ def login_for_access_token(
             "role": user.role.name
         }
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "username": user.username,
+        "full_name": user.full_name or "",
+        "role": user.role.name
+    }

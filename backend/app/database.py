@@ -3,21 +3,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine import Engine
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"  # Замените на ваш путь к базе данных
+# Пример с "классическим" пользователем postgres и паролем admin
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:admin@localhost:5432/taskmanager"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL,
 )
 
-# Включение поддержки внешних ключей в SQLite
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
-
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 Base = declarative_base()
 
 def get_db():

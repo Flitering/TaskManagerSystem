@@ -1,13 +1,22 @@
 import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+
 from app import models
 from app.database import engine, SessionLocal
-from app.routers import users, auth, projects, tasks, reports
-from app.models import RoleEnum, Role
 from app.auth import get_password_hash
-from fastapi.middleware.cors import CORSMiddleware
-from app.routers import register
+from app.models import RoleEnum, Role, User
+from app.routers import (
+    auth,
+    users,
+    tasks,
+    projects,
+    reports,
+    register,
+    dashboard,
+    team
+)
 
 app = FastAPI(
     title="Task Manager System",
@@ -15,15 +24,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Путь к директории загрузок
 UPLOADS_DIR = "uploads"
-
-# Проверка и создание директории 'uploads'
 if not os.path.exists(UPLOADS_DIR):
     os.makedirs(UPLOADS_DIR)
-    print(f"Создана директория '{UPLOADS_DIR}'.")
 
-# Настройка CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -34,30 +38,27 @@ app.add_middleware(
 
 models.Base.metadata.create_all(bind=engine)
 
-# Создание начальных ролей
 def create_roles():
     db = SessionLocal()
     try:
-        existing_roles = db.query(Role).all()
-        if not existing_roles:
+        existing = db.query(Role).all()
+        if not existing:
             for role_name in RoleEnum:
-                role = Role(name=role_name)
-                db.add(role)
+                db.add(Role(name=role_name))
             db.commit()
     finally:
         db.close()
 
 create_roles()
 
-# Создание первоначального администратора
 def create_initial_admin():
     db = SessionLocal()
     try:
-        user = db.query(models.User).filter(models.User.username == "admin").first()
+        user = db.query(User).filter(User.username == "admin").first()
         if not user:
             hashed_password = get_password_hash("admin123")
             admin_role = db.query(Role).filter(Role.name == RoleEnum.admin).first()
-            admin_user = models.User(
+            admin_user = User(
                 username="admin",
                 hashed_password=hashed_password,
                 role=admin_role
@@ -69,11 +70,14 @@ def create_initial_admin():
 
 create_initial_admin()
 
+# Подключаем роутеры
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(tasks.router)
 app.include_router(reports.router)
 app.include_router(projects.router)
 app.include_router(register.router)
+app.include_router(dashboard.router)
+app.include_router(team.router)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

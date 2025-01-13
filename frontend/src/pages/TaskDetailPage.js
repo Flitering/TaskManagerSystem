@@ -1,553 +1,765 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
-import TaskService from '../services/TaskService';
-import AuthService from '../services/AuthService';
 import {
   Container,
   Typography,
-  TextField,
+  Paper,
+  Grid,
+  Box,
   Button,
+  IconButton,
+  TextField,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
-  Paper,
+  Checkbox,
   List,
   ListItem,
   ListItemText,
-  IconButton,
   Snackbar,
   Alert,
-  Box,
+  Tabs,
+  Tab,
+  Divider,
+  Menu
 } from '@mui/material';
-import Grid from '@mui/material/Grid';
-import DeleteIcon from '@mui/icons-material/Delete';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
+
 import AddIcon from '@mui/icons-material/Add';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import DeleteIcon from '@mui/icons-material/Delete';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+
+import TaskService from '../services/TaskService';
+import AuthService from '../services/AuthService';
+// Если нужно логировать «просмотр задачи»:
+import DashboardService from '../services/DashboardService'; // для log_view, favorites и т.п.
 
 function TaskDetailPage() {
   const { taskId } = useParams();
   const navigate = useNavigate();
+
+  // ======== STATES ========
   const [task, setTask] = useState(null);
   const [parentTask, setParentTask] = useState(null);
-  const [commentContent, setCommentContent] = useState('');
-  const [file, setFile] = useState(null);
+
+  // Основные поля задачи
+  const [description, setDescription] = useState('');
+  const [details, setDetails] = useState('');
   const [status, setStatus] = useState('');
+  const [priority, setPriority] = useState('');
   const [estimatedTime, setEstimatedTime] = useState('');
   const [timeSpent, setTimeSpent] = useState('');
-  const [details, setDetails] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState('');
 
-  const currentUserRole = AuthService.getUserRole();
+  // Дополнительные поля
+  const [issueType, setIssueType] = useState('Задача');
+  const [labels, setLabels] = useState('');
+  const [flagged, setFlagged] = useState(false);
+  const [team, setTeam] = useState('');
+  const [onlyForRoles, setOnlyForRoles] = useState('');
+  const [watchers, setWatchers] = useState([]); // список user_id наблюдателей
 
+  // Комментарии
+  const [commentContent, setCommentContent] = useState('');
+
+  // Вложения
+  const [file, setFile] = useState(null);
+
+  // Snackbar
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  // Флаг редактирования «Описание»
   const [isEditingDetails, setIsEditingDetails] = useState(false);
 
+  // Вкладка активности: 0 = «Все», 1 = «Комментарии», 2 = «История»
+  const [activityTab, setActivityTab] = useState(0);
+
+  // Роль текущего пользователя (admin/manager/executor)
+  const currentUserRole = AuthService.getUserRole();
+  const canEdit = (currentUserRole === 'admin' || currentUserRole === 'manager');
+
+  // Для меню «Действия»
+  const [anchorActions, setAnchorActions] = useState(null);
+  const handleActionsMenuOpen = (e) => setAnchorActions(e.currentTarget);
+  const handleActionsMenuClose = () => setAnchorActions(null);
+
+  // ===============================
+  // LOAD TASK
+  // ===============================
   useEffect(() => {
     loadTask();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
 
-  const loadTask = () => {
-    TaskService.getTask(taskId)
-      .then((response) => {
-        const data = response.data;
-        data.comments = data.comments || [];
-        data.attachments = data.attachments || [];
-        data.subtasks = data.subtasks || [];
-        setTask(data);
-        setStatus(data.status);
-        setEstimatedTime(data.estimated_time);
-        setTimeSpent(data.time_spent);
-        setDetails(data.details || '');
-        setDescription(data.description);
-        setPriority(data.priority);
+  const loadTask = async () => {
+    try {
+      const res = await TaskService.getTask(taskId);
+      const data = res.data;
 
-        if (data.parent_task_id) {
-          loadParentTask(data.parent_task_id);
-        } else {
-          setParentTask(null);
-        }
-      })
-      .catch((error) => {
-        console.error('Ошибка при загрузке задачи:', error);
-        showSnackbar('Не удалось загрузить задачу', 'error');
-      });
+      // Подстраховка от пустых массивов
+      data.comments = data.comments || [];
+      data.attachments = data.attachments || [];
+      data.subtasks = data.subtasks || [];
+
+      // Заполним локальный state
+      setTask(data);
+      setDescription(data.description || '');
+      setDetails(data.details || '');
+      setStatus(data.status || 'Новая');
+      setPriority(data.priority || 'Средний');
+      setEstimatedTime(String(data.estimated_time || '0'));
+      setTimeSpent(String(data.time_spent || '0'));
+      setIssueType(data.issue_type || 'Задача');
+      setLabels(data.labels || '');
+      setFlagged(!!data.flagged);
+      setTeam(data.team || '');
+      setOnlyForRoles(data.only_for_roles || '');
+      setWatchers(data.watchers?.map(u => u.id) || []);
+
+      // Родительская задача
+      if (data.parent_task_id) {
+        const parentRes = await TaskService.getTask(data.parent_task_id);
+        setParentTask(parentRes.data);
+      } else {
+        setParentTask(null);
+      }
+
+      // Если хотите логировать «просмотр задачи»:
+      // DashboardService.logView({ task_id: data.id }) 
+      //   .then(() => console.log('Просмотр задачи залогирован'))
+      //   .catch(err => console.error('Ошибка log_view:', err));
+
+    } catch (err) {
+      console.error('Ошибка при загрузке задачи:', err);
+      showSnackbar('Не удалось загрузить задачу', 'error');
+    }
   };
 
-  const loadParentTask = (parentTaskId) => {
-    TaskService.getTask(parentTaskId)
-      .then((response) => {
-        setParentTask(response.data);
-      })
-      .catch((error) => {
-        console.error('Ошибка при загрузке родительской задачи:', error);
-        showSnackbar('Не удалось загрузить родительскую задачу', 'error');
-      });
-  };
-
-  const handleAddComment = () => {
-    if (commentContent.trim() === '') return;
-    TaskService.addComment(taskId, { content: commentContent })
-      .then(() => {
-        setCommentContent('');
-        loadTask();
-        showSnackbar('Комментарий добавлен', 'success');
-      })
-      .catch((error) => {
-        console.error('Ошибка при добавлении комментария:', error);
-        showSnackbar('Не удалось добавить комментарий', 'error');
-      });
-  };
-
-  const handleUploadAttachment = () => {
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
-    TaskService.uploadAttachment(taskId, formData)
-      .then(() => {
-        setFile(null);
-        loadTask();
-        showSnackbar('Файл загружен', 'success');
-      })
-      .catch((error) => {
-        console.error('Ошибка при загрузке файла:', error);
-        showSnackbar('Не удалось загрузить файл', 'error');
-      });
-  };
-
-  const handleUpdateTask = () => {
-    const taskData = {
-      status,
-      estimated_time: parseFloat(estimatedTime),
-      time_spent: parseFloat(timeSpent),
-      details,
+  // ===============================
+  // UPDATE TASK
+  // ===============================
+  const handleUpdateTask = async () => {
+    const payload = {
       description,
+      details,
+      status,
       priority,
+      estimated_time: parseFloat(estimatedTime) || 0,
+      time_spent: parseFloat(timeSpent) || 0,
+      issue_type: issueType,
+      labels,
+      flagged,
+      team,
+      only_for_roles: onlyForRoles,
+      watchers,
     };
-    TaskService.updateTask(taskId, taskData)
-      .then(() => {
-        loadTask();
-        showSnackbar('Задача успешно обновлена', 'success');
-        setIsEditingDescription(false);
-        setIsEditingDetails(false);
-      })
-      .catch((error) => {
-        console.error('Ошибка при обновлении задачи:', error);
-        showSnackbar('Не удалось обновить задачу', 'error');
-      });
+    try {
+      await TaskService.updateTask(taskId, payload);
+      showSnackbar('Задача успешно обновлена');
+      setIsEditingDetails(false);
+      loadTask();
+    } catch (err) {
+      console.error('Ошибка при обновлении задачи:', err);
+      showSnackbar('Не удалось обновить задачу', 'error');
+    }
   };
 
+  // ===============================
+  // DELETE TASK
+  // ===============================
   const handleDeleteTask = async () => {
-    const confirmDelete = window.confirm('Вы уверены, что хотите удалить эту задачу? Все связанные подзадачи будут также удалены.');
-    if (!confirmDelete) return;
-
+    const conf = window.confirm('Вы действительно хотите удалить эту задачу?');
+    if (!conf) return;
     try {
       await TaskService.deleteTask(taskId);
-      showSnackbar('Задача успешно удалена', 'success');
+      showSnackbar('Задача удалена', 'success');
       navigate('/tasks');
-    } catch (error) {
-      console.error('Ошибка при удалении задачи:', error);
+    } catch (err) {
+      console.error('Ошибка при удалении задачи:', err);
       showSnackbar('Не удалось удалить задачу', 'error');
     }
   };
 
-  const handleDeleteAttachment = (attachmentId) => {
-    const confirmDelete = window.confirm('Вы уверены, что хотите удалить этот файл?');
-    if (!confirmDelete) return;
-  
-    TaskService.deleteAttachment(taskId, attachmentId)
-      .then(() => {
-        showSnackbar('Файл успешно удалён', 'success');
-        loadTask();
-      })
-      .catch((error) => {
-        console.error('Ошибка при удалении файла:', error);
-        showSnackbar('Не удалось удалить файл', 'error');
-      });
+  // ===============================
+  // COMMENTS
+  // ===============================
+  const handleAddComment = async () => {
+    if (!commentContent.trim()) return;
+    try {
+      await TaskService.addComment(taskId, { content: commentContent });
+      setCommentContent('');
+      showSnackbar('Комментарий добавлен', 'success');
+      loadTask();
+    } catch (err) {
+      console.error('Ошибка при добавлении комментария:', err);
+      showSnackbar('Не удалось добавить комментарий', 'error');
+    }
   };
 
-  const showSnackbar = (message, severity) => {
-    setSnackbarMessage(message);
+  // ===============================
+  // ATTACHMENTS
+  // ===============================
+  const handleUploadAttachment = async () => {
+    if (!file) return;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await TaskService.uploadAttachment(taskId, formData);
+      setFile(null);
+      showSnackbar('Файл загружен', 'success');
+      loadTask();
+    } catch (err) {
+      console.error('Ошибка при загрузке файла:', err);
+      showSnackbar('Не удалось загрузить файл', 'error');
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    const conf = window.confirm('Удалить этот файл?');
+    if (!conf) return;
+    try {
+      await TaskService.deleteAttachment(taskId, attachmentId);
+      showSnackbar('Файл удалён', 'success');
+      loadTask();
+    } catch (err) {
+      console.error('Ошибка при удалении файла:', err);
+      showSnackbar('Не удалось удалить файл', 'error');
+    }
+  };
+
+  // ===============================
+  // ACTIVITY TABS
+  // ===============================
+  const handleActivityTabChange = (e, newValue) => {
+    setActivityTab(newValue);
+  };
+
+  // Подготовка контента вкладок «Активность»
+  let activityContent = null;
+  if (!task) {
+    // Если задача ещё не загружена
+    activityContent = <Typography>Загрузка...</Typography>;
+  } else {
+    switch (activityTab) {
+      case 0:
+        // Все (комментарии + история)
+        activityContent = (
+          <Box>
+            <Typography variant="body2" sx={{ mb:2 }}>
+              Все записи активности (комментарии + история).
+            </Typography>
+            {task.comments.length > 0 ? (
+              <List sx={{ mb:2 }}>
+                {task.comments.map(c => (
+                  <ListItem key={c.id}>
+                    <ListItemText
+                      primary={c.content}
+                      secondary={`Автор: ${c.user?.username || '—'}`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <Typography>Нет комментариев.</Typography>
+            )}
+            <Divider sx={{ my:2 }} />
+            <Typography variant="body2">
+              История (здесь могла бы быть лента изменений: статус, исполнитель и т.д.).
+            </Typography>
+          </Box>
+        );
+        break;
+      case 1:
+        // Комментарии
+        activityContent = (
+          <Box>
+            {task.comments.length > 0 ? (
+              <List>
+                {task.comments.map((c) => (
+                  <ListItem key={c.id} alignItems="flex-start">
+                    <ListItemText
+                      primary={c.content}
+                      secondary={`Автор: ${c.user?.username || '—'}`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <Typography>Нет комментариев</Typography>
+            )}
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                label="Добавить комментарий"
+                multiline
+                rows={3}
+                fullWidth
+                variant="outlined"
+                size="small"
+                value={commentContent}
+                onChange={(e) => setCommentContent(e.target.value)}
+              />
+              <Button
+                variant="contained"
+                sx={{ mt: 1 }}
+                startIcon={<AddIcon />}
+                onClick={handleAddComment}
+              >
+                Добавить комментарий
+              </Button>
+            </Box>
+          </Box>
+        );
+        break;
+      case 2:
+      default:
+        // История (заглушка)
+        activityContent = (
+          <Box>
+            <Typography variant="body2">
+              Здесь могла бы быть история изменений задачи.
+            </Typography>
+          </Box>
+        );
+        break;
+    }
+  }
+
+  // Хелперы
+  const showSnackbar = (msg, severity='success') => {
+    setSnackbarMessage(msg);
     setSnackbarSeverity(severity);
     setOpenSnackbar(true);
   };
-
   const handleCloseSnackbar = (event, reason) => {
     if (reason === 'clickaway') return;
     setOpenSnackbar(false);
   };
-
-  const formatDateTime = (dateTimeString) => {
-    if (!dateTimeString) return '-';
-    const options = { 
-      year: 'numeric', month: 'short', day: 'numeric', 
-      hour: '2-digit', minute: '2-digit' 
-    };
-    return new Date(dateTimeString).toLocaleDateString(undefined, options);
+  const formatDateTime = (dtString) => {
+    if (!dtString) return '-';
+    return new Date(dtString).toLocaleString();
   };
 
+  // Если ещё не успели загрузить (task=null):
   if (!task) {
     return (
-      <Container>
-        <Typography variant="h6">Загрузка...</Typography>
+      <Container sx={{ mt: 4 }}>
+        <Typography>Загрузка задачи...</Typography>
       </Container>
     );
   }
 
+  // Выясняем название проекта (если есть)
+  const projectName = task.project ? task.project.name : '';
+
   return (
-    <Container>
-      <Typography variant="h4" gutterBottom>
-        Детали задачи
-      </Typography>
-      <Paper sx={{ padding: 4, marginBottom: 5 }}>
-        <Grid container spacing={4}>
-          {task.parent_task_id && parentTask && (
-            <Grid item xs={12}>
-              <Typography variant="subtitle1">
-                Родительская задача:{' '}
-                <RouterLink
-                  to={`/tasks/${parentTask.id}`}
-                  style={{ textDecoration: 'none', color: '#1976d2' }}
-                >
-                  Перейти к родительской задаче
-                </RouterLink>{' '}
-                (ID: {parentTask.id}) - {parentTask.description}
-              </Typography>
-            </Grid>
-          )}
-
-          {task.parent_task_id && !parentTask && (
-            <Grid item xs={12}>
-              <Typography variant="subtitle1" color="textSecondary">
-                Родительская задача не найдена
-              </Typography>
-            </Grid>
-          )}
-
-          {/* Название задачи: делаем более заметным */}
-          <Grid item xs={12}>
-            <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold' }}>
-              Название задачи:
+    <Container maxWidth="xl" sx={{ mt: 4 }}>
+      {/* Верхняя часть: Название задачи, кнопки */}
+      <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+        {/* Слева */}
+        <Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+              {description || 'Без названия'}
             </Typography>
-            {isEditingDescription ? (
-              <TextField
-                fullWidth
-                variant="outlined"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                size="medium"
-                onBlur={() => handleUpdateTask()}
-              />
-            ) : (
-              <Typography 
-                onClick={() => { if(currentUserRole !== 'executor') setIsEditingDescription(true) }}
-                sx={{ 
-                  cursor: currentUserRole !== 'executor' ? 'pointer' : 'default',
-                  mt:1,
-                  fontSize: '1.2rem', // чуть крупнее текст
-                  fontWeight: 'medium'
-                }}
-              >
-                {description || '-'}
+            {/* Вместо (KAN-{task.id}) пишем: (Проект: {projectName}) */}
+            {projectName && (
+              <Typography variant="body2" color="text.secondary">
+                (Проект: {projectName})
               </Typography>
             )}
-          </Grid>
+          </Box>
 
-          {/* Статус */}
-          <Grid item xs={12} sm={6} md={6}>
-            <Typography variant="h6">Статус:</Typography>
-            {currentUserRole !== 'executor' ? (
-              <FormControl fullWidth variant="outlined" size="medium">
-                <InputLabel id="status-label">Статус</InputLabel>
+          {/* Пример «доп.кнопок»: */}
+          <Box display="flex" alignItems="center" gap={1} sx={{ mt:1 }}>
+            <Button variant="outlined" size="small" onClick={() => alert('Добавить эпик (не реализовано)')}>
+              + Добавить Эпик
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => alert('Приложения (не реализовано)')}>
+              Приложения
+            </Button>
+          </Box>
+        </Box>
+
+        {/* Справа */}
+        <Box display="flex" alignItems="center" gap={2}>
+          {/* Select «Статус» */}
+          <FormControl variant="outlined" size="small">
+            <Select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              onBlur={handleUpdateTask}
+            >
+              <MenuItem value="Новая">Новая</MenuItem>
+              <MenuItem value="В процессе">В процессе</MenuItem>
+              <MenuItem value="Завершена">Завершена</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Кнопка «Действия» */}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<MoreVertIcon />}
+            onClick={handleActionsMenuOpen}
+          >
+            Действия
+          </Button>
+          <Menu
+            anchorEl={anchorActions}
+            open={Boolean(anchorActions)}
+            onClose={handleActionsMenuClose}
+          >
+            <MenuItem
+              onClick={() => {
+                handleActionsMenuClose();
+                setFlagged(!flagged);
+                setTimeout(handleUpdateTask, 0);
+              }}
+            >
+              {flagged ? 'Убрать флажок (Impediment)' : 'Добавить флажок (Impediment)'}
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleActionsMenuClose();
+                alert('Клонировать задачу (не реализовано)');
+              }}
+            >
+              Клонировать
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleActionsMenuClose();
+                handleDeleteTask();
+              }}
+            >
+              Удалить
+            </MenuItem>
+            <Divider />
+            <MenuItem
+              onClick={() => {
+                handleActionsMenuClose();
+                alert('Настроить задачу (не реализовано)');
+              }}
+            >
+              Настроить
+            </MenuItem>
+          </Menu>
+        </Box>
+      </Box>
+
+      <Divider sx={{ mb: 3 }} />
+
+      <Grid container spacing={2}>
+        {/* Левая колонка */}
+        <Grid item xs={12} md={8}>
+
+          {/* Параметры задачи */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight:'bold', mb:1 }}>
+              Параметры задачи
+            </Typography>
+            <Box display="flex" flexWrap="wrap" gap={2}>
+              {/* Тип задачи */}
+              <FormControl size="small">
+                <InputLabel>Тип</InputLabel>
                 <Select
-                  labelId="status-label"
-                  value={status}
-                  label="Статус"
-                  onChange={(e) => setStatus(e.target.value)}
+                  label="Тип"
+                  value={issueType}
+                  onChange={(e) => setIssueType(e.target.value)}
                   onBlur={handleUpdateTask}
                 >
-                  <MenuItem value="Новая">Новая</MenuItem>
-                  <MenuItem value="В процессе">В процессе</MenuItem>
-                  <MenuItem value="Завершена">Завершена</MenuItem>
+                  <MenuItem value="Задача">Задача</MenuItem>
+                  <MenuItem value="Ошибка">Ошибка</MenuItem>
+                  <MenuItem value="Эпик">Эпик</MenuItem>
                 </Select>
               </FormControl>
-            ) : (
-              <Typography>{task.status}</Typography>
-            )}
-          </Grid>
 
-          {/* Приоритет */}
-          <Grid item xs={12} sm={6} md={6}>
-            <Typography variant="h6">Приоритет:</Typography>
-            <FormControl fullWidth variant="outlined" size="medium">
-              <InputLabel id="priority-label">Приоритет</InputLabel>
-              <Select
-                labelId="priority-label"
-                value={priority}
-                label="Приоритет"
-                onChange={(e) => setPriority(e.target.value)}
-                onBlur={handleUpdateTask}
-              >
-                <MenuItem value="Низкий">Низкий</MenuItem>
-                <MenuItem value="Средний">Средний</MenuItem>
-                <MenuItem value="Высокий">Высокий</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+              {/* Приоритет */}
+              <FormControl size="small">
+                <InputLabel>Приоритет</InputLabel>
+                <Select
+                  label="Приоритет"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                  onBlur={handleUpdateTask}
+                >
+                  <MenuItem value="Низкий">Низкий</MenuItem>
+                  <MenuItem value="Средний">Средний</MenuItem>
+                  <MenuItem value="Высокий">Высокий</MenuItem>
+                </Select>
+              </FormControl>
 
-          {/* Оценочное время */}
-          <Grid item xs={12} sm={6} md={6}>
-            <Typography variant="h6">Оценочное время (ч):</Typography>
-            {currentUserRole !== 'executor' ? (
+              {/* Оценка */}
               <TextField
-                type="number"
-                fullWidth
-                variant="outlined"
+                size="small"
+                label="Оценка (ч)"
                 value={estimatedTime}
                 onChange={(e) => setEstimatedTime(e.target.value)}
-                size="medium"
                 onBlur={handleUpdateTask}
+                sx={{ width:120 }}
               />
-            ) : (
-              <Typography>{`${task.estimated_time} ч`}</Typography>
-            )}
-          </Grid>
 
-          {/* Потраченное время */}
-          <Grid item xs={12} sm={6} md={6}>
-            <Typography variant="h6">Потраченное время (ч):</Typography>
-            <TextField
-              type="number"
-              fullWidth
-              variant="outlined"
-              value={timeSpent}
-              onChange={(e) => setTimeSpent(e.target.value)}
-              size="medium"
-              onBlur={handleUpdateTask}
-            />
-          </Grid>
+              {/* Потрачено */}
+              <TextField
+                size="small"
+                label="Потрачено (ч)"
+                value={timeSpent}
+                onChange={(e) => setTimeSpent(e.target.value)}
+                onBlur={handleUpdateTask}
+                sx={{ width:120 }}
+              />
 
-          {/* Назначен */}
-          <Grid item xs={12} sm={6} md={6}>
-            <Typography variant="h6">Назначен:</Typography>
-            <Typography>{task.assigned_user ? task.assigned_user.username : '-'}</Typography>
-          </Grid>
+              {/* Флажок (Impediment) */}
+              <Box display="flex" alignItems="center">
+                <Checkbox
+                  checked={flagged}
+                  onChange={(e) => {
+                    setFlagged(e.target.checked);
+                    setTimeout(handleUpdateTask, 0);
+                  }}
+                />
+                <Typography>Impediment</Typography>
+              </Box>
+            </Box>
+          </Box>
 
-          {/* Назначил */}
-          <Grid item xs={12} sm={6} md={6}>
-            <Typography variant="h6">Назначил:</Typography>
-            <Typography>{task.creator ? task.creator.username : '-'}</Typography>
-          </Grid>
-
-          {/* Дата назначения */}
-          <Grid item xs={12} sm={6} md={6}>
-            <Typography variant="h6">Дата назначения:</Typography>
-            <Typography>{formatDateTime(task.created_at)}</Typography>
-          </Grid>
-
-          {/* Подробное описание с переносом слов */}
-          <Grid item xs={12}>
-            <Typography variant="h6" sx={{ mb:1 }}>Подробное описание:</Typography>
-            {isEditingDetails ? (
+          {/* Описание */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ mb:1 }}>Описание</Typography>
+            {isEditingDetails && canEdit ? (
               <TextField
                 multiline
                 rows={4}
                 fullWidth
                 variant="outlined"
+                size="small"
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
-                size="medium"
-                onBlur={() => handleUpdateTask()}
+                onBlur={handleUpdateTask}
               />
             ) : (
-              <Typography 
-                onClick={() => { if(currentUserRole === 'admin' || currentUserRole === 'manager') setIsEditingDetails(true); }}
-                sx={{ 
-                  cursor: (currentUserRole === 'admin' || currentUserRole === 'manager') ? 'pointer' : 'default',
+              <Typography
+                sx={{
+                  cursor: canEdit ? 'pointer' : 'default',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word'
                 }}
+                onClick={() => {
+                  if (canEdit) setIsEditingDetails(true);
+                }}
               >
-                {details || '-'}
+                {details || 'Нажмите, чтобы добавить / отредактировать описание'}
               </Typography>
             )}
-          </Grid>
+          </Box>
 
-          <Grid item xs={12}>
-            <Box display="flex" alignItems="center" gap={2}>
-              {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
+          {/* Вложения */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ mb:1 }}>Вложения</Typography>
+            {task.attachments.length > 0 ? (
+              <List>
+                {task.attachments.map((att) => (
+                  <ListItem
+                    key={att.id}
+                    sx={{ display:'flex', justifyContent:'space-between' }}
+                  >
+                    <Box>
+                      <a
+                        href={att.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ textDecoration:'none', color:'#1976d2' }}
+                      >
+                        {att.filename}
+                      </a>
+                    </Box>
+                    {canEdit && (
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteAttachment(att.id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    )}
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <Typography>Нет вложений</Typography>
+            )}
+
+            {canEdit && (
+              <Box sx={{ mt:2, display:'flex', gap:1 }}>
                 <Button
-                  variant="outlined"
-                  color="error"
-                  onClick={handleDeleteTask}
-                  size="large"
+                  variant="contained"
+                  component="label"
+                  startIcon={<UploadFileIcon />}
                 >
-                  Удалить задачу
+                  Выбрать файл
+                  <input
+                    type="file"
+                    hidden
+                    onChange={(e) => setFile(e.target.files[0])}
+                  />
                 </Button>
+                <Button
+                  variant="contained"
+                  disabled={!file}
+                  onClick={handleUploadAttachment}
+                >
+                  Загрузить
+                </Button>
+              </Box>
+            )}
+          </Box>
+
+          {/* Подзадачи */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ mb:1 }}>Подзадачи</Typography>
+            {task.subtasks.length > 0 ? (
+              <List>
+                {task.subtasks.map((st) => (
+                  <ListItem key={st.id}>
+                    <ListItemText
+                      primary={(
+                        <RouterLink
+                          to={`/tasks/${st.id}`}
+                          style={{ textDecoration:'none', color:'#1976d2' }}
+                        >
+                          {st.description}
+                        </RouterLink>
+                      )}
+                      secondary={`Статус: ${st.status}`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <Typography>Нет подзадач</Typography>
+            )}
+            {canEdit && (
+              <Button
+                variant="contained"
+                color="secondary"
+                component={RouterLink}
+                to={`/tasks/${task.id}/create-subtask`}
+                startIcon={<AddIcon />}
+              >
+                Создать подзадачу
+              </Button>
+            )}
+          </Box>
+
+          {/* Активность (Tabs) - в самом низу по пожеланию */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ mb:1 }}>Активность</Typography>
+            <Tabs value={activityTab} onChange={handleActivityTabChange} sx={{ mb:2 }}>
+              <Tab label="Все" />
+              <Tab label="Комментарии" />
+              <Tab label="История" />
+            </Tabs>
+
+            {activityContent}
+          </Box>
+
+          {/* Кнопка «Удалить задачу» (опционально) */}
+          {canEdit && (
+            <Box sx={{ mb: 3 }}>
+              <Button variant="outlined" color="error" onClick={handleDeleteTask}>
+                Удалить задачу
+              </Button>
+            </Box>
+          )}
+        </Grid>
+
+        {/* Правая колонка: «Сведения» */}
+        <Grid item xs={12} md={4}>
+          <Box sx={{ p:2, border:'1px solid #ddd', borderRadius:1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight:'bold', mb:1 }}>
+              Сведения
+            </Typography>
+
+            {/* Исполнитель */}
+            <Box sx={{ mb:1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Исполнитель:
+              </Typography>
+              <Typography>
+                {task.assigned_user
+                  ? task.assigned_user.username
+                  : '—'}
+              </Typography>
+            </Box>
+
+            {/* Метки */}
+            <Box sx={{ mb:1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Метки
+              </Typography>
+              <Typography>
+                {labels || 'Нет'}
+              </Typography>
+            </Box>
+
+            {/* Родительская задача */}
+            <Box sx={{ mb:1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Родитель
+              </Typography>
+              {parentTask ? (
+                <Typography>
+                  <RouterLink
+                    to={`/tasks/${parentTask.id}`}
+                    style={{ textDecoration:'none', color:'#1976d2' }}
+                  >
+                    {parentTask.description}
+                  </RouterLink>
+                </Typography>
+              ) : (
+                <Typography>Нет</Typography>
               )}
             </Box>
-          </Grid>
+
+            {/* Команда */}
+            <Box sx={{ mb:1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Команда
+              </Typography>
+              <Typography>{team || 'Не указано'}</Typography>
+            </Box>
+
+            {/* Автор */}
+            <Box sx={{ mb:1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Автор
+              </Typography>
+              <Typography>
+                {task.creator ? task.creator.username : '—'}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Дата создания / обновления */}
+          <Box sx={{ mt:2, p:2, border:'1px solid #ddd', borderRadius:1 }}>
+            <Typography variant="body2" sx={{ color:'text.secondary' }}>
+              Создано: {formatDateTime(task.created_at)}
+            </Typography>
+            <Typography variant="body2" sx={{ color:'text.secondary' }}>
+              Обновлено: {task.updated_at ? formatDateTime(task.updated_at) : '-'}
+            </Typography>
+          </Box>
         </Grid>
-      </Paper>
+      </Grid>
 
-      {/* Комментарии */}
-      <Typography variant="h5" gutterBottom>
-        Комментарии
-      </Typography>
-      <Paper sx={{ padding: 4, marginBottom: 5 }}>
-        {task.comments && task.comments.length > 0 ? (
-          <List>
-            {task.comments.map((comment) => (
-              <ListItem key={comment.id} alignItems="flex-start">
-                <ListItemText
-                  primary={comment.content}
-                  secondary={`Автор: ${comment.user.username}`}
-                />
-              </ListItem>
-            ))}
-          </List>
-        ) : (
-          <Typography>Нет комментариев.</Typography>
-        )}
-        <Box sx={{ mt: 3 }}>
-          <TextField
-            label="Добавить комментарий"
-            multiline
-            rows={3}
-            fullWidth
-            variant="outlined"
-            value={commentContent}
-            onChange={(e) => setCommentContent(e.target.value)}
-            size="medium"
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleAddComment}
-            sx={{ mt: 2 }}
-            startIcon={<AddIcon />}
-            size="large"
-          >
-            Добавить комментарий
-          </Button>
-        </Box>
-      </Paper>
-
-      {/* Вложения */}
-      <Typography variant="h5" gutterBottom>
-        Вложения
-      </Typography>
-      <Paper sx={{ padding: 4, marginBottom: 5 }}>
-        {task.attachments && task.attachments.length > 0 ? (
-          <List>
-            {task.attachments.map((attachment) => (
-              <ListItem key={attachment.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <a
-                    href={`http://localhost:8000/uploads/${attachment.filename}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: 'none', color: '#1976d2' }}
-                  >
-                    {attachment.filename}
-                  </a>
-                </Box>
-                {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
-                  <IconButton
-                    color="error"
-                    onClick={() => handleDeleteAttachment(attachment.id)}
-                    aria-label="delete-attachment"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                )}
-              </ListItem>
-            ))}
-          </List>
-        ) : (
-          <Typography>Нет вложений.</Typography>
-        )}
-        <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
-          <Button
-            variant="contained"
-            component="label"
-            startIcon={<UploadFileIcon />}
-            size="large"
-          >
-            Выбрать файл
-            <input
-              type="file"
-              hidden
-              onChange={(e) => setFile(e.target.files[0])}
-            />
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleUploadAttachment}
-            disabled={!file}
-            startIcon={<UploadFileIcon />}
-            size="large"
-          >
-            Загрузить файл
-          </Button>
-        </Box>
-      </Paper>
-
-      {/* Подзадачи */}
-      <Typography variant="h5" gutterBottom>
-        Подзадачи
-      </Typography>
-      <Paper sx={{ padding: 4, marginBottom: 5 }}>
-        {task.subtasks && task.subtasks.length > 0 ? (
-          <List>
-            {task.subtasks.map((subtask) => (
-              <ListItem key={subtask.id}>
-                <ListItemText
-                  primary={
-                    <RouterLink
-                      to={`/tasks/${subtask.id}`}
-                      style={{ textDecoration: 'none', color: '#1976d2' }}
-                    >
-                      {subtask.description}
-                    </RouterLink>
-                  }
-                  secondary={`Статус: ${subtask.status}`}
-                />
-              </ListItem>
-            ))}
-          </List>
-        ) : (
-          <Typography>Нет подзадач.</Typography>
-        )}
-        {(currentUserRole === 'admin' || currentUserRole === 'manager') && (
-          <Button
-            variant="contained"
-            color="secondary"
-            component={RouterLink}
-            to={`/tasks/${task.id}/create-subtask`}
-            sx={{ mt: 3 }}
-            startIcon={<AddIcon />}
-            size="large"
-          >
-            Создать подзадачу
-          </Button>
-        )}
-      </Paper>
-
+      {/* Snackbar */}
       <Snackbar
         open={openSnackbar}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical:'bottom', horizontal:'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
+        <Alert severity={snackbarSeverity} onClose={handleCloseSnackbar} sx={{ width:'100%' }}>
           {snackbarMessage}
         </Alert>
       </Snackbar>

@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from typing import List
 from sqlalchemy.orm import Session
-from app import crud, schemas, models
-from app.database import get_db
-from app.dependencies import role_required, get_current_user
-from app.models import RoleEnum, Attachment
+from app.routers.dashboard import log_view
 from datetime import datetime
 import os
 import shutil
+
+from app.database import get_db
+from app.dependencies import role_required, get_current_user
+from app import crud, schemas, models
+from app.models import RoleEnum, Attachment
 
 router = APIRouter(
     prefix="/tasks",
@@ -22,26 +24,19 @@ def read_tasks(
     current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor]))
 ):
     if current_user.role.name == RoleEnum.executor.value:
-        tasks = db.query(models.Task).filter(models.Task.assigned_user_id == current_user.id).all()
+        return db.query(models.Task).filter(models.Task.assigned_user_id == current_user.id).all()
     else:
-        tasks = crud.get_tasks(db)
-    return tasks
+        return crud.get_tasks(db)
 
 @router.post("/", response_model=schemas.Task)
-def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    db_task = models.Task(
-        description=task.description,
-        details=task.details,
-        project_id=task.project_id,
-        assigned_user_id=task.assigned_user_id,
-        creator_id=current_user.id,
-        estimated_time=task.estimated_time,
-        assignment_date=datetime.utcnow() if task.assigned_user_id else None
-    )
-    db.add(db_task)
-    db.commit()
-    db.refresh(db_task)
-    return db_task
+def create_task(
+    task: schemas.TaskCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # ... создаём задачу через crud.
+    new_task = crud.create_task(db, task, creator_id=current_user.id)
+    return new_task
 
 @router.put("/{task_id}", response_model=schemas.Task)
 def update_task(
@@ -53,16 +48,27 @@ def update_task(
     task = crud.get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    # Если executor — проверяем, что может менять только свою задачу
     if current_user.role.name == RoleEnum.executor.value and task.assigned_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Нет прав на изменение этой задачи")
-    return crud.update_task(db, task, task_update)
+
+    # Проставляем, кто последний обновлял
+    task.last_updated_by_id = current_user.id
+
+    # Вызываем crud
+    updated_task = crud.update_task(db, task, task_update)
+    return updated_task
 
 @router.get("/{task_id}", response_model=schemas.Task)
 def get_task(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor])),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor]))
 ):
+    # log_view (запись просмотра)
+    log_view(db, current_user.id, task_id=task_id)
+
     task = crud.get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -102,7 +108,7 @@ def create_subtask(
     task_id: int,
     subtask_data: schemas.TaskCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager])),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager]))
 ):
     parent_task = crud.get_task(db, task_id)
     if not parent_task:
@@ -128,6 +134,7 @@ def delete_task(
     db_task = crud.get_task(db, task_id)
     if not db_task:
         raise HTTPException(status_code=404, detail="Задача не найдена")
+
     success = crud.delete_task(db, task_id)
     if not success:
         raise HTTPException(status_code=400, detail="Не удалось удалить задачу")
@@ -140,17 +147,57 @@ def delete_attachment(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager]))
 ):
-    # Получаем задачу
     task = crud.get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Задача не найдена")
 
-    # Проверяем, что вложение относится к этой задаче
     attachment = db.query(Attachment).filter(Attachment.id == attachment_id, Attachment.task_id == task_id).first()
     if not attachment:
         raise HTTPException(status_code=404, detail="Вложение не найдено или не относится к этой задаче")
 
     db.delete(attachment)
     db.commit()
-
     return
+
+@router.get("/metadata")
+def get_task_metadata():
+    return {
+        "issue_types": ["Задача", "Ошибка", "Эпик"],
+        "priorities": ["Низкий", "Средний", "Высокий"],
+        "relation_types": [
+            "blocks", "is blocked by", "clones", "is cloned by",
+            "duplicates", "is duplicated by", "implements",
+            "is implemented by", "relates to"
+        ]
+    }
+
+@router.post("/create-extended", response_model=schemas.Task)
+def create_extended_task(
+    task_data: schemas.TaskCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if current_user.role.name not in [RoleEnum.admin.value, RoleEnum.manager.value]:
+        raise HTTPException(status_code=403, detail="Недостаточно прав для создания задачи")
+
+    new_task = crud.create_task(db, task_data, creator_id=current_user.id)
+    return new_task
+
+@router.get("/{task_id}/relations")
+def get_task_relations(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return {"detail": "Not implemented"}
+
+@router.post("/relations")
+def create_task_relation(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if current_user.role.name not in [RoleEnum.admin.value, RoleEnum.manager.value]:
+        raise HTTPException(status_code=403, detail="Нет прав")
+
+    return {"detail": "Not implemented"}

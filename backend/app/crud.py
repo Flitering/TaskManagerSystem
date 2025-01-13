@@ -116,10 +116,56 @@ def create_task(db: Session, task: schemas.TaskCreate, creator_id: int):
         assigned_user_id=task.assigned_user_id,
         creator_id=creator_id,
         parent_task_id=task.parent_task_id,
+        # Новые поля
+        issue_type=task.issue_type,
+        labels=task.labels or "",
+        flagged=task.flagged,
+        team=task.team,
+        only_for_roles=task.only_for_roles,
     )
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
+
+    # watchers
+    if task.watchers:
+        # Нужно добавить в db_task.watchers всех юзеров из списка
+        for user_id in task.watchers:
+            user_obj = get_user(db, user_id)
+            if user_obj:
+                db_task.watchers.append(user_obj)
+
+        db.commit()
+        db.refresh(db_task)
+
+    return db_task
+
+
+def update_task(db: Session, db_task: models.Task, task_update: schemas.TaskUpdate):
+    update_data = task_update.dict(exclude_unset=True)
+
+    # watchers (если переданы, мы их можем перестроить заново)
+    watchers_list = None
+    if "watchers" in update_data and update_data["watchers"] is not None:
+        watchers_list = update_data.pop("watchers")
+
+    for key, value in update_data.items():
+        setattr(db_task, key, value)
+
+    db.commit()
+    db.refresh(db_task)
+
+    if watchers_list is not None:
+        # Очистим текущих watchers
+        db_task.watchers.clear()
+        # Добавим заново
+        for user_id in watchers_list:
+            user_obj = get_user(db, user_id)
+            if user_obj:
+                db_task.watchers.append(user_obj)
+        db.commit()
+        db.refresh(db_task)
+
     return db_task
 
 def update_task(db: Session, task: models.Task, task_update: schemas.TaskUpdate):

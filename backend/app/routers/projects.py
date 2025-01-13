@@ -5,6 +5,7 @@ from app import crud, schemas, models
 from app.database import get_db
 from app.dependencies import role_required
 from app.models import RoleEnum
+from app.routers.dashboard import log_view
 
 router = APIRouter(
     prefix="/projects",
@@ -118,3 +119,27 @@ def remove_participant(
     if not success:
         raise HTTPException(status_code=404, detail="Участник или проект не найдены")
     return
+
+@router.get("/{project_id}/detail", response_model=schemas.ProjectDetail)
+def get_project_detail(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(role_required([RoleEnum.admin, RoleEnum.manager, RoleEnum.executor]))
+):
+    # запись просмотра (log_view)
+    log_view(db, current_user.id, project_id=project_id, task_id=None)
+
+    project, tasks, participants = crud.get_project_with_details(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Проект не найден")
+
+    project_data = {
+        "id": project.id,
+        "name": project.name,
+        "description": project.description,
+        "created_at": project.created_at,
+        "leader": project.leader,
+        "tasks": tasks,
+        "participants": participants
+    }
+    return project_data
